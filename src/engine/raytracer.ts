@@ -361,7 +361,9 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         else if (rot === 270) dir = { x: 0, y: -1 };
 
         const baseColor = laser.params?.color || '#ff0000';
-        const basePower = laser.params?.power || 1;
+        const brightness = laser.params?.brightness ?? 1; // Default 1.0
+        const glow = laser.params?.glow ?? 0.4;           // Default 0.4
+
         const perp = { x: -dir.y, y: dir.x };
         const offset = 2.5;
 
@@ -369,21 +371,21 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         queue.push({
             origin: { ...laser.position },
             dir,
-            intensity: basePower,
+            intensity: brightness,
             color: baseColor,
             bounces: 0
         });
         queue.push({
             origin: add(laser.position, mul(perp, offset)),
             dir,
-            intensity: basePower * 0.4,
+            intensity: glow,
             color: baseColor,
             bounces: 0
         });
         queue.push({
             origin: sub(laser.position, mul(perp, offset)),
             dir,
-            intensity: basePower * 0.4,
+            intensity: glow,
             color: baseColor,
             bounces: 0
         });

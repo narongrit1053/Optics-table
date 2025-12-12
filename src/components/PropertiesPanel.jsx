@@ -76,7 +76,19 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         >
                             ↺
                         </button>
-                        <span style={{ fontWeight: 'bold' }}>{Math.round(selectedComp.rotation)}°</span>
+                        <input
+                            type="number"
+                            value={Math.round(selectedComp.rotation)}
+                            onChange={(e) => updateRotation(e.target.value)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#fff',
+                                width: '50px',
+                                textAlign: 'center',
+                                fontWeight: 'bold'
+                            }}
+                        />
                         <button
                             onClick={() => updateRotation((selectedComp.rotation + 45) % 360)}
                             style={{ background: 'transparent', border: '1px solid #555', color: '#fff', borderRadius: '4px', width: '30px', cursor: 'pointer' }}
@@ -88,14 +100,34 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
 
                 {selectedComp.type === 'laser' && (
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Power</label>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Label</label>
+                        <input
+                            type="text"
+                            value={selectedComp.params?.label || ''}
+                            onChange={(e) => updateParam('label', e.target.value)}
+                            placeholder="Optional text..."
+                            style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #555', background: '#222', color: '#fff' }}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Power (Brightness)</label>
                         <input
                             type="range"
                             min="0"
                             max="2"
                             step="0.1"
-                            value={selectedComp.params?.power || 1}
-                            onChange={(e) => updateParam('power', e.target.value)}
+                            value={selectedComp.params?.brightness ?? 1}
+                            onChange={(e) => updateParam('brightness', e.target.value)}
+                            style={{ width: '100%' }}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Glow (Side Rays)</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={selectedComp.params?.glow ?? 0.4}
+                            onChange={(e) => updateParam('glow', e.target.value)}
                             style={{ width: '100%' }}
                         />
 

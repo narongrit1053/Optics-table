@@ -228,7 +228,22 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
                                 {/* Aperture / Front */}
                                 <rect x="18" y="-4" width="4" height="8" fill={comp.params?.color || 'red'} />
                                 {/* Label/Icon */}
-                                <text x="-5" y="5" fontSize="10" fill="#888" style={{ userSelect: 'none', pointerEvents: 'none' }}>🔦</text>
+                                {/* Label/Icon */}
+                                {comp.params?.label ? (
+                                    <text
+                                        x="0"
+                                        y="4"
+                                        fontSize="10"
+                                        fill="#fff"
+                                        textAnchor="middle"
+                                        fontWeight="bold"
+                                        style={{ userSelect: 'none', pointerEvents: 'none', textShadow: '0 0 2px black' }}
+                                    >
+                                        {comp.params.label}
+                                    </text>
+                                ) : (
+                                    <text x="-5" y="5" fontSize="10" fill="#888" style={{ userSelect: 'none', pointerEvents: 'none' }}>🔦</text>
+                                )}
                             </g>
                         )}
 

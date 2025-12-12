@@ -17,6 +17,9 @@ export interface OpticalComponent {
         transmission?: number; // For beam splitter
         width?: number; // Physical dimensions
         height?: number;
+        label?: string; // Text label
+        brightness?: number; // Core beam intensity
+        glow?: number; // Side beam intensity
     };
 }
 
