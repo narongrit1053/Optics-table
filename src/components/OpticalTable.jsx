@@ -8,7 +8,8 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
     const [viewBox, setViewBox] = useState({ x: -1000, y: -500, w: 2000, h: 1000 });
     const [isPanning, setIsPanning] = useState(false);
     const [draggedCompId, setDraggedCompId] = useState(null);
-    const [snapToGrid, setSnapToGrid] = useState(true); // Default to on
+    // const [snapToGrid, setSnapToGrid] = useState(true); // Removed
+
     const lastMousePos = useRef({ x: 0, y: 0 });
     const svgRef = useRef(null);
 
@@ -68,7 +69,8 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
                     const rawX = c.position.x + svgDx;
                     const rawY = c.position.y + svgDy;
 
-                    if (snapToGrid) {
+                    const shouldSnap = e.ctrlKey || e.metaKey;
+                    if (shouldSnap) {
                         const snappedX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
                         const snappedY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
                         return { ...c, position: { x: snappedX, y: snappedY } };
@@ -108,8 +110,9 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
             transmission: type === 'beamsplitter' ? 0.5 : undefined,
         };
 
-        const finalX = snapToGrid ? Math.round(svgPoint.x / GRID_SIZE) * GRID_SIZE : svgPoint.x;
-        const finalY = snapToGrid ? Math.round(svgPoint.y / GRID_SIZE) * GRID_SIZE : svgPoint.y;
+        const shouldSnap = e.ctrlKey || e.metaKey;
+        const finalX = shouldSnap ? Math.round(svgPoint.x / GRID_SIZE) * GRID_SIZE : svgPoint.x;
+        const finalY = shouldSnap ? Math.round(svgPoint.y / GRID_SIZE) * GRID_SIZE : svgPoint.y;
 
         const newComp = {
             id: uuidv4(),
@@ -307,28 +310,7 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
 
             {/* View Controls */}
             <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px' }}>
-                <button
-                    onClick={() => setSnapToGrid(!snapToGrid)}
-                    style={{
-                        background: snapToGrid ? 'rgba(0, 255, 157, 0.15)' : 'rgba(20, 20, 26, 0.8)',
-                        border: `1px solid ${snapToGrid ? '#00ff9d' : '#333'}`,
-                        color: snapToGrid ? '#00ff9d' : '#e0e0e0',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        backdropFilter: 'blur(4px)',
-                        fontSize: '0.9rem',
-                        fontWeight: '500',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                    }}
-                >
-                    <span style={{ fontSize: '1.1em' }}>{snapToGrid ? '🕸️' : '🕸️'}</span>
-                    Snap {snapToGrid ? 'On' : 'Off'}
-                </button>
+
 
                 <button
                     onClick={resetView}
