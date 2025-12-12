@@ -7,6 +7,7 @@ const COMPONENT_TYPES = [
     { type: 'beamsplitter', label: 'Beam Splitter', icon: '◫' },
     { type: 'lens', label: 'Lens', icon: '🔍' },
     { type: 'detector', label: 'Detector', icon: '📡' },
+    { type: 'aom', label: 'AOM', icon: '⚡' },
 ];
 
 const Sidebar = ({ setComponents }) => {

@@ -154,4 +154,45 @@ describe('Raytracer Engine', () => {
         expect(hits['det1']).toBeCloseTo(1.8, 1);
     });
 
+    it('should split beam at AOM (0th and 1st order)', () => {
+        const components: OpticalComponent[] = [
+            {
+                id: 'laser1',
+                type: 'laser',
+                position: { x: 0, y: 0 },
+                rotation: 0,
+                params: { power: 1 }
+            },
+            {
+                id: 'aom1',
+                type: 'aom',
+                position: { x: 100, y: 0 },
+                rotation: 90,
+                params: { efficiency: 0.5, deviation: 30 } // 50/50 split, 30deg deviation
+            }
+        ];
+
+        const { rays } = calculateRays(components);
+
+        // Filter strong rays
+        const strongRays = rays.filter(r => r.intensity >= 0.4);
+
+        // Should have:
+        // 1. Source (1.0)
+        // 2. 0th Order (Straight) -> (1, 0)
+        // 3. 1st Order (Deflected) -> Rotated 30 deg
+
+        const hasZeroOrder = strongRays.some(r => r.direction.x > 0.9 && Math.abs(r.direction.y) < 0.1 && r.start.x > 100);
+
+        // 30 deg vector: (0.866, 0.5)
+        const hasFirstOrder = strongRays.some(r =>
+            Math.abs(r.direction.x - 0.866) < 0.1 &&
+            Math.abs(r.direction.y - 0.5) < 0.1 &&
+            r.start.x > 100
+        );
+
+        expect(hasZeroOrder).toBe(true);
+        expect(hasFirstOrder).toBe(true);
+    });
+
 });

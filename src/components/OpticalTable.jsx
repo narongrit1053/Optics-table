@@ -108,6 +108,8 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
             color: type === 'laser' ? '#ff0000' : undefined,
             focalLength: type === 'lens' ? 100 : undefined,
             transmission: type === 'beamsplitter' ? 0.5 : undefined,
+            efficiency: type === 'aom' ? 0.9 : undefined,
+            deviation: type === 'aom' ? 5 : undefined,
         };
 
         const shouldSnap = e.ctrlKey || e.metaKey;
@@ -280,6 +282,20 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
                                 <rect x="-15" y="-15" width="30" height="30" fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="1" />
                                 {/* Diagonal Splitter Surface (Bottom-Left to Top-Right) */}
                                 <line x1="-15" y1="15" x2="15" y2="-15" stroke="silver" strokeWidth="2" strokeDasharray="2,1" />
+                            </g>
+                        )}
+
+                        {comp.type === 'aom' && (
+                            <g>
+                                {/* Crystal Body */}
+                                <rect x="-10" y="-20" width="20" height="40" fill="rgba(200, 200, 255, 0.4)" stroke="#88f" strokeWidth="1" />
+                                {/* Transducer (Piezo) on Top */}
+                                <rect x="-10" y="-26" width="20" height="6" fill="#d4af37" stroke="#b8860b" />
+                                {/* RF Cable / Symbol */}
+                                <path d="M 0 -26 L 0 -35" stroke="#888" strokeWidth="1" />
+                                <circle cx="0" cy="-35" r="2" fill="#888" />
+                                {/* Internal Gratings (Decoration) */}
+                                <path d="M -6 -15 L 6 -15 M -6 -5 L 6 -5 M -6 5 L 6 5 M -6 15 L 6 15" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
                             </g>
                         )}
 

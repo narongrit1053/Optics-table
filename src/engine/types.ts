@@ -3,7 +3,7 @@ export type Vector2D = {
     y: number;
 };
 
-export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector';
+export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom';
 
 export interface OpticalComponent {
     id: string;
@@ -20,6 +20,8 @@ export interface OpticalComponent {
         label?: string; // Text label
         brightness?: number; // Core beam intensity
         glow?: number; // Side beam intensity
+        efficiency?: number; // AOM diffraction efficiency (0-1)
+        deviation?: number; // AOM deflection angle (degrees)
     };
 }
 

@@ -187,6 +187,42 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                     </div>
                 )}
 
+                {selectedComp.type === 'aom' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>RF Power (Efficiency)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value={selectedComp.params?.efficiency ?? 0.5}
+                                onChange={(e) => updateParam('efficiency', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {Math.round((selectedComp.params?.efficiency ?? 0.5) * 100)}%
+                            </span>
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Deviation Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                min="-15"
+                                max="15"
+                                step="1"
+                                value={selectedComp.params?.deviation ?? 5}
+                                onChange={(e) => updateParam('deviation', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.deviation ?? 5}°
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 <button
                     onClick={deleteComponent}
                     style={{ width: '100%', marginTop: '2rem', borderColor: '#ff0055', color: '#ff0055', background: 'transparent' }}

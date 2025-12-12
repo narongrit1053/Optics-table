@@ -50,7 +50,7 @@ const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2
     return { p1, p2, normal };
 };
 
-// Detector: Similar to mirror but different logic
+// Detector
 const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
     const width = 40;
     const halfWidth = width / 2;
@@ -61,6 +61,22 @@ const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D
     const p2 = rotatePoint({ x: det.position.x + p2Local.x, y: det.position.y + p2Local.y }, det.position, det.rotation);
 
     const normRad = (det.rotation * Math.PI) / 180;
+    const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
+
+    return { p1, p2, normal };
+};
+
+// AOM: Rectangular Crystal (Interaction Line)
+const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
+    const width = 40;
+    const halfWidth = width / 2;
+    const p1Local = { x: 0, y: -halfWidth };
+    const p2Local = { x: 0, y: halfWidth };
+
+    const p1 = rotatePoint({ x: aom.position.x + p1Local.x, y: aom.position.y + p1Local.y }, aom.position, aom.rotation);
+    const p2 = rotatePoint({ x: aom.position.x + p2Local.x, y: aom.position.y + p2Local.y }, aom.position, aom.rotation);
+
+    const normRad = (aom.rotation * Math.PI) / 180;
     const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
 
     return { p1, p2, normal };
@@ -188,7 +204,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
         let closestHit: HitRecord | null = null;
         let minT = Infinity;
 
-        // Unified loop for better TS Control Flow Analysis
+        // Unified loop
         for (const comp of components) {
 
             // Mirror
@@ -211,6 +227,18 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                     minT = hit.t;
                     // Absorb
                     closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'detector', component: comp };
+                }
+            }
+
+            // AOM
+            else if (comp.type === 'aom') {
+                const seg = getAOMSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+                if (hit && hit.t < minT) {
+                    minT = hit.t;
+                    let N = seg.normal;
+                    if (dot(currentDir, N) > 0) N = mul(N, -1);
+                    closestHit = { t: hit.t, point: hit.point, normal: N, type: 'aom', component: comp };
                 }
             }
 
@@ -244,8 +272,6 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
         }
 
         if (closestHit) {
-            // TS now definitely knows closestHit is not null here if assigned in the loop
-            // But to be absolutely safe with "possibly undefined" in some configs, we check again or rely on the type.
             const hit = closestHit as HitRecord;
 
             path.push(hit.point);
@@ -261,6 +287,40 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
             else if (hit.type === 'detector') {
                 const id = hit.component.id;
                 hits[id] = (hits[id] || 0) + pending.intensity;
+                break;
+            }
+            else if (hit.type === 'aom') {
+                const efficiency = hit.component.params?.efficiency ?? 0.5; // 0 to 1
+                const deviation = hit.component.params?.deviation ?? 5; // Degrees
+
+                // 0th Order (Straight)
+                if (pending.intensity * (1 - efficiency) > MIN_INTENSITY) {
+                    nextRays.push({
+                        origin: add(hit.point, mul(currentDir, EPSILON * 5)),
+                        dir: currentDir,
+                        intensity: pending.intensity * (1 - efficiency),
+                        color: pending.color,
+                        bounces: pending.bounces + 1
+                    });
+                }
+
+                // 1st Order (Deflected)
+                if (pending.intensity * efficiency > MIN_INTENSITY) {
+                    const rad = (deviation * Math.PI) / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+                    const newDir = {
+                        x: currentDir.x * cos - currentDir.y * sin,
+                        y: currentDir.x * sin + currentDir.y * cos
+                    };
+                    nextRays.push({
+                        origin: add(hit.point, mul(normalize(newDir), EPSILON * 5)),
+                        dir: normalize(newDir),
+                        intensity: pending.intensity * efficiency,
+                        color: pending.color,
+                        bounces: pending.bounces + 1
+                    });
+                }
                 break;
             }
             else if (hit.type === 'lens') {
