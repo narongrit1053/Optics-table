@@ -1,0 +1,129 @@
+.app-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-dark);
+  overflow: hidden;
+}
+
+.main-stage-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.main-stage {
+  background: radial-gradient(circle at center, #111118 0%, #0a0a0f 100%);
+  overflow: hidden;
+}
+
+/* UI Overlays */
+.overlay-panel {
+  position: absolute;
+  z-index: 10;
+  background: rgba(20, 20, 26, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Sidebar Overlay */
+.sidebar-overlay {
+  top: 20px;
+  left: 20px;
+  bottom: 20px;
+  width: 280px;
+  border-radius: 12px;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-overlay.collapsed {
+  width: 60px;
+}
+
+/* Properties Panel Overlay */
+.properties-overlay {
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  max-height: calc(100vh - 40px);
+  border-radius: 12px;
+}
+
+.properties-overlay.collapsed {
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  top: 20px;
+}
+
+/* Panel Header & Toggle */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 60px;
+}
+
+.collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Content visibility when collapsed */
+.overlay-content {
+  opacity: 1;
+  transition: opacity 0.2s;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.collapsed .overlay-content,
+.collapsed .panel-title {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+/* Vertical text for collapsed state (optional) */
+.collapsed-label {
+  display: none;
+}
+
+.collapsed .collapsed-label {
+  display: block;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 20px 0;
+  margin: 0 auto;
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 2px;
+}
