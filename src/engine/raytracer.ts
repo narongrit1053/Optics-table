@@ -50,6 +50,22 @@ const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2
     return { p1, p2, normal };
 };
 
+// Detector: Similar to mirror but different logic
+const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
+    const width = 40;
+    const halfWidth = width / 2;
+    const p1Local = { x: 0, y: -halfWidth };
+    const p2Local = { x: 0, y: halfWidth };
+
+    const p1 = rotatePoint({ x: det.position.x + p1Local.x, y: det.position.y + p1Local.y }, det.position, det.rotation);
+    const p2 = rotatePoint({ x: det.position.x + p2Local.x, y: det.position.y + p2Local.y }, det.position, det.rotation);
+
+    const normRad = (det.rotation * Math.PI) / 180;
+    const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
+
+    return { p1, p2, normal };
+};
+
 // Beam Splitter: Diagonal Line Segment
 const getBeamSplitterSegment = (bs: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
     const size = 30;
@@ -145,6 +161,7 @@ interface PendingRay {
 interface TraceResult {
     visualRay: Ray;
     nextRays: PendingRay[];
+    hits: Record<string, number>; // Map component ID to intensity hit
 }
 
 interface HitRecord {
@@ -162,6 +179,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
     let path = [currentOrigin];
     let currentRefractiveIndex = REFRACTIVE_INDEX_AIR;
     let nextRays: PendingRay[] = [];
+    let hits: Record<string, number> = {};
 
     let loopLimit = MAX_BOUNCES;
 
@@ -185,7 +203,16 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 }
             }
 
-            // Detector logic removed
+            // Detector
+            else if (comp.type === 'detector') {
+                const seg = getDetectorSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+                if (hit && hit.t < minT) {
+                    minT = hit.t;
+                    // Absorb
+                    closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'detector', component: comp };
+                }
+            }
 
             // Beam Splitter
             else if (comp.type === 'beamsplitter') {
@@ -217,6 +244,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
         }
 
         if (closestHit) {
+            // TS now definitely knows closestHit is not null here if assigned in the loop
+            // But to be absolutely safe with "possibly undefined" in some configs, we check again or rely on the type.
             const hit = closestHit as HitRecord;
 
             path.push(hit.point);
@@ -228,6 +257,11 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 const R = sub(currentDir, mul(N, 2 * dotDN));
                 currentDir = normalize(R);
                 currentOrigin = add(currentOrigin, mul(currentDir, EPSILON * 2));
+            }
+            else if (hit.type === 'detector') {
+                const id = hit.component.id;
+                hits[id] = (hits[id] || 0) + pending.intensity;
+                break;
             }
             else if (hit.type === 'lens') {
                 const N = hit.normal;
@@ -304,13 +338,15 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
             color: pending.color,
             path: path
         },
-        nextRays
+        nextRays,
+        hits
     };
 };
 
 
-export const calculateRays = (components: OpticalComponent[]): Ray[] => {
+export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hits: Record<string, number> } => {
     const finalRays: Ray[] = [];
+    const totalHits: Record<string, number> = {};
     const queue: PendingRay[] = [];
 
     const lasers = components.filter(c => c.type === 'laser');
@@ -361,6 +397,11 @@ export const calculateRays = (components: OpticalComponent[]): Ray[] => {
         const result = tracePolyline(current, components);
         finalRays.push(result.visualRay);
 
+        // Accumulate hits
+        Object.entries(result.hits).forEach(([id, val]) => {
+            totalHits[id] = (totalHits[id] || 0) + val;
+        });
+
         result.nextRays.forEach(child => {
             if (child.bounces < MAX_BOUNCES) {
                 queue.push(child);
@@ -368,5 +409,5 @@ export const calculateRays = (components: OpticalComponent[]): Ray[] => {
         });
     }
 
-    return finalRays;
+    return { rays: finalRays, hits: totalHits };
 };

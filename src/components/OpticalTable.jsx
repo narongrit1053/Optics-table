@@ -13,7 +13,7 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
     const svgRef = useRef(null);
 
     // Calculate Rays
-    const rays = useMemo(() => calculateRays(components), [components]);
+    const { rays, hits } = useMemo(() => calculateRays(components), [components]);
 
     // --- View Navigation (Pan/Zoom) ---
     const handleWheel = (e) => {
@@ -265,8 +265,24 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
                             </g>
                         )}
 
+                        {comp.type === 'detector' && (
+                            <g>
+                                {/* Sensor Body */}
+                                <rect x="-5" y="-20" width="10" height="40" fill="#222" stroke="#555" strokeWidth="1" />
+                                {/* Active Area */}
+                                <rect x="-5" y="-18" width="4" height="36" fill="#111" />
+                                {/* Readout Overlay (always horizontal) */}
+                                <g transform={`rotate(${-comp.rotation}) translate(15, 0)`}>
+                                    <rect x="-5" y="-10" width="45" height="20" rx="4" fill="rgba(0,0,0,0.8)" stroke="#555" />
+                                    <text x="17" y="4" fill="#0f0" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                                        {(hits[comp.id] || 0).toFixed(2)}
+                                    </text>
+                                </g>
+                            </g>
+                        )}
+
                         {/* Placeholder for others */}
-                        {comp.type !== 'laser' && comp.type !== 'mirror' && comp.type !== 'lens' && comp.type !== 'beamsplitter' && (
+                        {comp.type !== 'laser' && comp.type !== 'mirror' && comp.type !== 'lens' && comp.type !== 'beamsplitter' && comp.type !== 'detector' && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
                     </g>

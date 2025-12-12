@@ -13,7 +13,7 @@ describe('Raytracer Engine', () => {
             params: { power: 1, color: 'red' }
         }];
 
-        const rays = calculateRays(components);
+        const { rays } = calculateRays(components);
 
         // Should have 3 rays (Center + 2 Side)
         expect(rays.length).toBe(3);
@@ -51,7 +51,7 @@ describe('Raytracer Engine', () => {
             }
         ];
 
-        const rays = calculateRays(components);
+        const { rays } = calculateRays(components);
         const centerRay = rays[0];
 
         // Path: Start -> Mirror -> End
@@ -104,7 +104,7 @@ describe('Raytracer Engine', () => {
             }
         ];
 
-        const rays = calculateRays(components);
+        const { rays } = calculateRays(components);
 
         // Expecting multiple rays now (Visual rays returned)
         // calculateRays returns FLATTENED visual rays.
@@ -128,6 +128,30 @@ describe('Raytracer Engine', () => {
 
         expect(hasReflected).toBe(true);
         expect(hasTransmitted).toBe(true);
+    });
+
+    it('should detect light at detector', () => {
+        const components: OpticalComponent[] = [
+            {
+                id: 'laser1',
+                type: 'laser',
+                position: { x: 0, y: 0 },
+                rotation: 0,
+                params: { power: 1 }
+            },
+            {
+                id: 'det1',
+                type: 'detector',
+                position: { x: 200, y: 0 },
+                rotation: 0,
+                params: {}
+            }
+        ];
+
+        const { hits } = calculateRays(components);
+
+        expect(hits['det1']).toBeGreaterThan(0);
+        expect(hits['det1']).toBeCloseTo(1.8, 1);
     });
 
 });

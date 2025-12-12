@@ -6,6 +6,7 @@ const COMPONENT_TYPES = [
     { type: 'mirror', label: 'Mirror', icon: '🪞' },
     { type: 'beamsplitter', label: 'Beam Splitter', icon: '◫' },
     { type: 'lens', label: 'Lens', icon: '🔍' },
+    { type: 'detector', label: 'Detector', icon: '📡' },
 ];
 
 const Sidebar = ({ setComponents }) => {
