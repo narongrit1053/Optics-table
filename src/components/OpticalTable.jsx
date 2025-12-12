@@ -4,7 +4,7 @@ import { calculateRays } from '../engine/raytracer';
 
 const GRID_SIZE = 20;
 
-const OpticalTable = ({ components, setComponents, onSelect }) => {
+const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) => {
     const [viewBox, setViewBox] = useState({ x: -1000, y: -500, w: 2000, h: 1000 });
     const [isPanning, setIsPanning] = useState(false);
     const [draggedCompId, setDraggedCompId] = useState(null);
@@ -79,7 +79,7 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
                     }
                 }
                 return c;
-            }));
+            }), false); // False = Transient update (don't commit to history yet)
         }
 
         lastMousePos.current = { x: e.clientX, y: e.clientY };
@@ -127,7 +127,7 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
             params: defaultParams
         };
 
-        setComponents(prev => [...prev, newComp]);
+        setComponents(prev => [...prev, newComp], true); // True = Commit to history
         onSelect(newComp.id);
     };
 
@@ -135,6 +135,7 @@ const OpticalTable = ({ components, setComponents, onSelect }) => {
     const handleCompMouseDown = (e, id) => {
         e.stopPropagation(); // Stop background pan
         e.preventDefault();  // Stop native drag/select
+        saveCheckpoint();    // Save state before drag starts
         setDraggedCompId(id);
         onSelect(id);
         lastMousePos.current = { x: e.clientX, y: e.clientY };

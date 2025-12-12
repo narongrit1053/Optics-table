@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
+const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckpoint }) => {
     const [collapsed, setCollapsed] = useState(false);
     const selectedComp = components.find(c => c.id === selectedCompId);
 
@@ -17,17 +17,17 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
 
         setComponents(prev => prev.map(c =>
             c.id === selectedCompId ? { ...c, params: { ...c.params, [key]: finalValue } } : c
-        ));
+        ), false); // Transient update
     };
 
     const updateRotation = (value) => {
         setComponents(prev => prev.map(c =>
             c.id === selectedCompId ? { ...c, rotation: parseFloat(value) } : c
-        ));
+        ), false);
     };
 
     const deleteComponent = () => {
-        setComponents(prev => prev.filter(c => c.id !== selectedCompId));
+        setComponents(prev => prev.filter(c => c.id !== selectedCompId), true); // Commit delete
     };
 
     if (!selectedComp) {
@@ -78,6 +78,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         </button>
                         <input
                             type="number"
+                            onFocus={saveCheckpoint}
                             value={Math.round(selectedComp.rotation)}
                             onChange={(e) => updateRotation(e.target.value)}
                             style={{
@@ -103,6 +104,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Label</label>
                         <input
                             type="text"
+                            onFocus={saveCheckpoint}
                             value={selectedComp.params?.label || ''}
                             onChange={(e) => updateParam('label', e.target.value)}
                             placeholder="Optional text..."
@@ -112,6 +114,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Power (Brightness)</label>
                         <input
                             type="range"
+                            onMouseDown={saveCheckpoint}
                             min="0"
                             max="2"
                             step="0.1"
@@ -123,6 +126,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Glow (Side Rays)</label>
                         <input
                             type="range"
+                            onMouseDown={saveCheckpoint}
                             min="0"
                             max="1"
                             step="0.05"
@@ -135,6 +139,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                             <input
                                 type="color"
+                                onFocus={saveCheckpoint}
                                 value={selectedComp.params?.color || '#ff0000'}
                                 onChange={(e) => updateParam('color', e.target.value)}
                                 style={{ width: '50px', height: '30px', border: 'none', background: 'transparent', cursor: 'pointer' }}
@@ -150,6 +155,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"
+                                onMouseDown={saveCheckpoint}
                                 min="50"
                                 max="300"
                                 step="10"
@@ -170,6 +176,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"
+                                onMouseDown={saveCheckpoint}
                                 min="0"
                                 max="1"
                                 step="0.1"
@@ -193,6 +200,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"
+                                onMouseDown={saveCheckpoint}
                                 min="0"
                                 max="1"
                                 step="0.05"
@@ -209,6 +217,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"
+                                onMouseDown={saveCheckpoint}
                                 min="-15"
                                 max="15"
                                 step="1"
