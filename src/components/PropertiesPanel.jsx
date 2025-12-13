@@ -146,12 +146,145 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             />
                             <span style={{ fontSize: '0.8em', color: '#aaa' }}>{selectedComp.params?.color || '#ff0000'}</span>
                         </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Polarization Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.polarization ?? 0}
+                                onChange={(e) => updateParam('polarization', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.polarization ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            0° = Horizontal, 90° = Vertical
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'hwp' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Fast Axis Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.fastAxis ?? 0}
+                                onChange={(e) => updateParam('fastAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.fastAxis ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Rotates polarization by 2×(fast axis - input)
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'qwp' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Fast Axis Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.fastAxis ?? 45}
+                                onChange={(e) => updateParam('fastAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.fastAxis ?? 45}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Converts linear ↔ circular polarization
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'polarizer' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Polarizer Axis</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.polarizerAxis ?? 0}
+                                onChange={(e) => updateParam('polarizerAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.polarizerAxis ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            I = I₀ cos²(θ) - Malus's Law
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'pbs' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>PBS Axis (p-pol transmission)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.pbsAxis ?? 0}
+                                onChange={(e) => updateParam('pbsAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.pbsAxis ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            p-pol (aligned) transmits, s-pol (⊥) reflects
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'poldetector' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedComp.params?.showReadout ?? true}
+                                onChange={(e) => updateParam('showReadout', e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Show Readout
+                        </label>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '8px' }}>
+                            Displays intensity (I) and polarization angle (θ)
+                        </div>
                     </div>
                 )}
 
                 {selectedComp.type === 'fiber' && (
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Acceptance Angle (Half-Angle)</label>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Acceptance Angle (NA Half-Angle)</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"
@@ -167,26 +300,160 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                                 {selectedComp.params?.acceptanceAngle || 15}°
                             </span>
                         </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Angular acceptance (Gaussian falloff)
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Core Size (Mode Field)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="4"
+                                max="24"
+                                step="2"
+                                value={selectedComp.params?.coreSize || 12}
+                                onChange={(e) => updateParam('coreSize', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.coreSize || 12}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Spatial filtering diameter
+                        </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', marginTop: '12px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedComp.params?.showReadout ?? true}
+                                onChange={(e) => updateParam('showReadout', e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Show Power Readout
+                        </label>
+                    </div>
+                )}
+
+                {selectedComp.type === 'detector' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedComp.params?.showReadout ?? true}
+                                onChange={(e) => updateParam('showReadout', e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Show Power Readout
+                        </label>
                     </div>
                 )}
 
                 {selectedComp.type === 'iris' && (
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Aperture Size</label>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Aperture Diameter</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"
                                 onMouseDown={saveCheckpoint}
-                                min="0" // Fully closed
-                                max="40" // Fully open (assuming height 40)
+                                min="0"
+                                max="32"
                                 step="1"
-                                value={selectedComp.params?.aperture ?? 20} // Default 20
+                                value={selectedComp.params?.aperture ?? 20}
                                 onChange={(e) => updateParam('aperture', e.target.value)}
                                 style={{ flex: 1 }}
                             />
                             <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
-                                {selectedComp.params?.aperture ?? 20}px
+                                {selectedComp.params?.aperture ?? 20}
                             </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            0 = closed, 32 = fully open
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'cavity' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Reflectivity</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0.5"
+                                max="0.99"
+                                step="0.01"
+                                value={selectedComp.params?.reflectivity ?? 0.95}
+                                onChange={(e) => updateParam('reflectivity', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '45px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {Math.round((selectedComp.params?.reflectivity ?? 0.95) * 100)}%
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Mirror reflectivity (higher = more bounces)
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Cavity Length</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="40"
+                                max="200"
+                                step="10"
+                                value={selectedComp.params?.cavityLength ?? 100}
+                                onChange={(e) => updateParam('cavityLength', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '45px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.cavityLength ?? 100}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'text' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Text Content</label>
+                        <input
+                            type="text"
+                            onFocus={saveCheckpoint}
+                            value={selectedComp.params?.content || ''}
+                            onChange={(e) => updateParam('content', e.target.value)}
+                            placeholder="Enter text..."
+                            style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #555', background: '#222', color: '#fff' }}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Font Size</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="8"
+                                max="48"
+                                step="2"
+                                value={selectedComp.params?.fontSize ?? 16}
+                                onChange={(e) => updateParam('fontSize', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.fontSize ?? 16}px
+                            </span>
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Text Color</label>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <input
+                                type="color"
+                                onFocus={saveCheckpoint}
+                                value={selectedComp.params?.textColor || '#ffffff'}
+                                onChange={(e) => updateParam('textColor', e.target.value)}
+                                style={{ width: '50px', height: '30px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.8em', color: '#aaa' }}>{selectedComp.params?.textColor || '#ffffff'}</span>
                         </div>
                     </div>
                 )}
