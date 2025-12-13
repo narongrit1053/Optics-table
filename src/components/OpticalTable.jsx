@@ -297,14 +297,41 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             <g>
                                 {/* Hit Area (Transparent) */}
                                 <rect x="-15" y="-30" width="30" height="60" fill="transparent" stroke="none" />
-                                {/* Lens Glass Body (Biconvex) */}
-                                {/* Draws two arcs meeting at top and bottom points (0, -30) and (0, 30) */}
-                                <path
-                                    d="M 0 -30 Q 15 0 0 30 Q -15 0 0 -30"
-                                    fill="rgba(100, 200, 255, 0.3)"
-                                    stroke="rgba(100, 200, 255, 0.8)"
-                                    strokeWidth="1"
-                                />
+
+
+                                {/* Lens Glass Body */}
+                                {(!comp.params?.lensShape || comp.params.lensShape === 'convex') && (
+                                    <path
+                                        d="M 0 -30 Q 15 0 0 30 Q -15 0 0 -30"
+                                        fill="rgba(100, 200, 255, 0.3)"
+                                        stroke="rgba(100, 200, 255, 0.8)"
+                                        strokeWidth="1"
+                                    />
+                                )}
+                                {comp.params?.lensShape === 'concave' && (
+                                    <path
+                                        d="M -10 -30 Q 0 0 -10 30 L 10 30 Q 0 0 10 -30 Z"
+                                        fill="rgba(100, 200, 255, 0.3)"
+                                        stroke="rgba(100, 200, 255, 0.8)"
+                                        strokeWidth="1"
+                                    />
+                                )}
+                                {comp.params?.lensShape === 'plano-convex' && (
+                                    <path
+                                        d="M -5 -30 L -5 30 Q 15 0 -5 -30"
+                                        fill="rgba(100, 200, 255, 0.3)"
+                                        stroke="rgba(100, 200, 255, 0.8)"
+                                        strokeWidth="1"
+                                    />
+                                )}
+                                {comp.params?.lensShape === 'plano-concave' && (
+                                    <path
+                                        d="M -5 -30 L -5 30 L 10 30 Q 0 0 10 -30 Z"
+                                        fill="rgba(100, 200, 255, 0.3)"
+                                        stroke="rgba(100, 200, 255, 0.8)"
+                                        strokeWidth="1"
+                                    />
+                                )}
                             </g>
                         )}
 
@@ -357,7 +384,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
             </svg>
 
             {/* View Controls */}
-            <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px' }}>
+            < div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px' }}>
                 <button
                     onClick={downloadSVG}
                     style={{
@@ -402,7 +429,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                     Reset View
                 </button>
             </div>
-        </div>
+        </div >
     );
 };
 

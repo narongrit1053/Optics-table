@@ -151,7 +151,27 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
 
                 {selectedComp.type === 'lens' && (
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Focal Length</label>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Shape</label>
+                        <select
+                            value={selectedComp.params?.lensShape || 'convex'}
+                            onChange={(e) => updateParam('lensShape', e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: '#222',
+                                color: '#fff',
+                                border: '1px solid #555',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                marginBottom: '10px'
+                            }}
+                        >
+                            <option value="convex">Biconvex (Converging)</option>
+                            <option value="concave">Biconcave (Diverging)</option>
+                            <option value="plano-convex">Plano-Convex</option>
+                            <option value="plano-concave">Plano-Concave</option>
+                        </select>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Focal Length / Power</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <input
                                 type="range"

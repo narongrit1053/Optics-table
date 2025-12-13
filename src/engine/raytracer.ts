@@ -99,20 +99,68 @@ const getBeamSplitterSegment = (bs: OpticalComponent): { p1: Vector2D, p2: Vecto
     return { p1, p2, normal };
 };
 
-// Lens: Two Circle Segments (Spherical surfaces)
-const getLensSurfaces = (lens: OpticalComponent): { center1: Vector2D, r1: number, center2: Vector2D, r2: number } => {
+// --- Shape Definitions Refactor ---
+// Return a set of boundary surfaces (Circles or Segments)
+type Surface =
+    | { type: 'circle', center: Vector2D, radius: number, normalFlip: number }
+    | { type: 'line', p1: Vector2D, p2: Vector2D };
+
+const getLensBoundaries = (lens: OpticalComponent): Surface[] => {
     const f = lens.params?.focalLength || 100;
+    const shape = lens.params?.lensShape || 'convex';
     const n = REFRACTIVE_INDEX_GLASS;
-    const R = 2 * (n - 1) * f;
-    const T = 15; // Lens thickness
+    const T = 15; // Thickness
 
-    const cx1 = R - T / 2;
-    const cx2 = -(R - T / 2);
+    // Biconvex: R = 2(n-1)f. Centers on opposite sides.
+    // Biconcave: R = 2(n-1)f. Centers on same sides (outward).
+    // Plano: R = (n-1)f. One surface flat.
 
-    const center1 = rotatePoint({ x: lens.position.x + cx1, y: lens.position.y }, lens.position, lens.rotation);
-    const center2 = rotatePoint({ x: lens.position.x + cx2, y: lens.position.y }, lens.position, lens.rotation);
+    let R = 2 * (n - 1) * f;
+    if (shape.includes('plano')) {
+        R = (n - 1) * f;
+    }
 
-    return { center1, r1: R, center2, r2: R };
+    // Position offsets relative to lens center (0,0) before rotation
+    const surfaces: Surface[] = [];
+    const pos = lens.position;
+
+    const transform = (localC: Vector2D) => rotatePoint(add(pos, localC), pos, lens.rotation);
+
+    if (shape === 'convex') {
+        const cxLocal = R - T / 2;
+        // Face 1 (Left): Center at (+cx, 0). Bulges Left. Normal points Out (Left).
+        // Hit point P. Normal = P - C. If P is left of C, Normal points Left. Correct.
+        surfaces.push({ type: 'circle', center: transform({ x: cxLocal, y: 0 }), radius: R, normalFlip: 1 });
+        // Face 2 (Right): Center at (-cx, 0). Bulges Right. Normal points Out (Right).
+        surfaces.push({ type: 'circle', center: transform({ x: -cxLocal, y: 0 }), radius: R, normalFlip: 1 });
+    } else if (shape === 'concave') {
+        // Face 1 (Left): Center at Left. Bulges Right (Inward). 
+        // Center (-R - T/2). P is at -T/2. P-C points Right. We want Normal Left (Out). So Flip -1.
+        surfaces.push({ type: 'circle', center: transform({ x: -R - T / 2, y: 0 }), radius: R, normalFlip: -1 });
+        // Face 2 (Right): Center at Right (+R + T/2). P is at +T/2. P-C points Left. We want Normal Right (Out). Flip -1.
+        surfaces.push({ type: 'circle', center: transform({ x: R + T / 2, y: 0 }), radius: R, normalFlip: -1 });
+    } else if (shape === 'plano-convex') {
+        // Left: Flat. Right: Convex.
+        // Flat (Left at -T/2). 
+        surfaces.push({
+            type: 'line',
+            p1: transform({ x: -T / 2, y: -40 }),
+            p2: transform({ x: -T / 2, y: 40 })
+        });
+        // Convex (Right). Center at (-R + T/2).
+        surfaces.push({ type: 'circle', center: transform({ x: -R + T / 2, y: 0 }), radius: R, normalFlip: 1 });
+    } else if (shape === 'plano-concave') {
+        // Left: Flat. Right: Concave.
+        surfaces.push({
+            type: 'line',
+            p1: transform({ x: -T / 2, y: -40 }),
+            p2: transform({ x: -T / 2, y: 40 })
+        });
+        // Concave (Right). Center at Right (+R + T/2). Flip -1.
+        surfaces.push({ type: 'circle', center: transform({ x: R + T / 2, y: 0 }), radius: R, normalFlip: -1 });
+    }
+
+    return surfaces;
 };
 
 // --- Intersection Logic ---
@@ -256,15 +304,38 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
 
             // Lens
             else if (comp.type === 'lens') {
-                const shapes = getLensSurfaces(comp);
-                const surfaces = [{ c: shapes.center1, r: shapes.r1 }, { c: shapes.center2, r: shapes.r2 }];
-                for (const surface of surfaces) {
-                    const hit = intersectRayCircle(currentOrigin, currentDir, surface.c, surface.r);
+                const surfaces = getLensBoundaries(comp);
+                for (const sf of surfaces) {
+                    let hit = null;
+                    let N = { x: 0, y: 0 };
+
+                    if (sf.type === 'circle') {
+                        const h = intersectRayCircle(currentOrigin, currentDir, sf.center, sf.radius);
+                        if (h) {
+                            hit = h;
+                            if (sf.normalFlip === -1) {
+                                N = mul(h.normal, -1);
+                            } else {
+                                N = h.normal;
+                            }
+                        }
+                    } else {
+                        const h = intersectRaySegment(currentOrigin, currentDir, sf.p1, sf.p2);
+                        if (h) {
+                            hit = h;
+                            // Line normal
+                            const dx = sf.p2.x - sf.p1.x;
+                            const dy = sf.p2.y - sf.p1.y;
+                            N = normalize({ x: -dy, y: dx });
+                        }
+                    }
+
                     if (hit) {
                         const distFromLensCenter = mag(sub(hit.point, comp.position));
-                        if (distFromLensCenter < 35 && hit.t < minT) {
+                        // Increased bounds for different shapes
+                        if (distFromLensCenter < 45 && hit.t < minT) {
                             minT = hit.t;
-                            closestHit = { t: hit.t, point: hit.point, normal: hit.normal, type: 'lens', component: comp };
+                            closestHit = { t: hit.t, point: hit.point, normal: N, type: 'lens', component: comp };
                         }
                     }
                 }
@@ -402,7 +473,6 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
         hits
     };
 };
-
 
 export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hits: Record<string, number> } => {
     const finalRays: Ray[] = [];

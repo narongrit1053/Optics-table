@@ -22,6 +22,7 @@ export interface OpticalComponent {
         glow?: number; // Side beam intensity
         efficiency?: number; // AOM diffraction efficiency (0-1)
         deviation?: number; // AOM deflection angle (degrees)
+        lensShape?: 'convex' | 'concave' | 'plano-convex' | 'plano-concave'; // Lens geometry
     };
 }
 
