@@ -18,23 +18,53 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
 
     // --- View Navigation (Pan/Zoom) ---
     const handleWheel = (e) => {
+        // Allow zoom without Ctrl (or restore standard behavior)
+        // If user wants standard pan/zoom behavior:
+        // Wheel = Zoom (classic simple tool behavior)
         e.preventDefault();
-        const zoomFactor = 1.05;
-        const direction = e.deltaY > 0 ? 1 : -1;
-        if (!svgRef.current) return;
+        const zoomFactor = e.deltaY > 0 ? 1.05 : 0.95;
 
-        const point = svgRef.current.createSVGPoint();
-        point.x = e.clientX;
-        point.y = e.clientY;
-        const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+        // Adjust mouse coordinates for the sidebar (320px)
+        const mouseX = (e.clientX - 320) * (viewBox.w / (window.innerWidth - 320)) + viewBox.x;
+        const mouseY = e.clientY * (viewBox.h / window.innerHeight) + viewBox.y;
 
-        const newW = direction > 0 ? viewBox.w * zoomFactor : viewBox.w / zoomFactor;
-        const newH = direction > 0 ? viewBox.h * zoomFactor : viewBox.h / zoomFactor;
-
-        const newX = svgPoint.x - (svgPoint.x - viewBox.x) * (newW / viewBox.w);
-        const newY = svgPoint.y - (svgPoint.y - viewBox.y) * (newH / viewBox.h);
+        const newW = viewBox.w * zoomFactor;
+        const newH = viewBox.h * zoomFactor;
+        const newX = mouseX - (mouseX - viewBox.x) * zoomFactor;
+        const newY = mouseY - (mouseY - viewBox.y) * zoomFactor;
 
         setViewBox({ x: newX, y: newY, w: newW, h: newH });
+    };
+
+    const downloadSVG = () => {
+        if (!svgRef.current) return;
+
+        // Clone the SVG to clean it up
+        const clone = svgRef.current.cloneNode(true);
+
+        // Remove elements marked as no-export (UI helpers, Center Marker)
+        const helpers = clone.querySelectorAll('.no-export');
+        helpers.forEach(el => el.remove());
+
+        const serializer = new XMLSerializer();
+        let source = serializer.serializeToString(clone);
+
+        // Add namespace if missing (browsers usually add it but good to be safe for external tools)
+        if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+            source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+
+        // Add XML declaration
+        source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+
+        const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `optical-setup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleMouseDown = (e) => {
@@ -199,10 +229,11 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                     width={viewBox.w * 3}
                     height={viewBox.h * 3}
                     fill="url(#grid-large)"
+                    className="no-export"
                 />
 
                 {/* Center Marker */}
-                <path d="M -10 0 L 10 0 M 0 -10 L 0 10" stroke="#00ff9d" strokeWidth="2" strokeOpacity="0.5" />
+                <path className="no-export" d="M -10 0 L 10 0 M 0 -10 L 0 10" stroke="#00ff9d" strokeWidth="2" strokeOpacity="0.5" />
 
                 {/* Draw Rays */}
                 {rays.map((ray, i) => (
@@ -327,7 +358,28 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
 
             {/* View Controls */}
             <div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px' }}>
-
+                <button
+                    onClick={downloadSVG}
+                    style={{
+                        background: 'rgba(20, 20, 26, 0.8)',
+                        border: '1px solid #333',
+                        color: '#e0e0e0',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(4px)',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <span style={{ fontSize: '1.1em' }}>💾</span>
+                    Save SVG
+                </button>
 
                 <button
                     onClick={resetView}
