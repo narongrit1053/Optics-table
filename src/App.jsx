@@ -115,6 +115,18 @@ function App() {
     }
   }, [selectedCompId, history.present, updateComponents]);
 
+  const rotateSelected = useCallback(() => {
+    if (selectedCompId) {
+      const newComps = history.present.map(c => {
+        if (c.id === selectedCompId) {
+          return { ...c, rotation: (c.rotation + 45) % 360 };
+        }
+        return c;
+      });
+      updateComponents(newComps, true);
+    }
+  }, [selectedCompId, history.present, updateComponents]);
+
   // --- Keyboard Shortcuts ---
 
   useEffect(() => {
@@ -148,12 +160,15 @@ function App() {
         if (e.key === 'Delete' || e.key === 'Backspace') {
           deleteSelected();
         }
+        if (e.key.toLowerCase() === 'r') {
+          rotateSelected();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copy, paste, deleteSelected]);
+  }, [undo, redo, copy, paste, deleteSelected, rotateSelected]);
 
 
   // Wrapper for child components to use setComponents interface but wired to history
