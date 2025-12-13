@@ -374,8 +374,62 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             </g>
                         )}
 
+
+                        {(comp.type === 'iris' || comp.type === 'blocker') && (
+                            <g>
+                                {/* Iris Housing (Square/Rect like mount) */}
+                                <rect x="-10" y="-20" width="20" height="40" fill="#222" stroke="#555" strokeWidth="1" />
+                                {/* Aperture Blades visual */}
+                                <circle cx="0" cy="0" r="16" fill="#111" stroke="#333" />
+                                {/* The actual opening (Hole) */}
+                                {/* Size depends on aperture param. Max 40 = Radius 20? Let's say max aperture 20 -> radius 10. */}
+                                {/* Param is diameter? If param 20 (default), radius 10. */}
+                                <circle cx="0" cy="0" r={(comp.params?.aperture ?? 20) / 2} fill="#333" stroke="none" />
+                                {/* Blade lines (Symbolic) */}
+                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(0)" />
+                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(60)" />
+                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(120)" />
+                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(180)" />
+                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(240)" />
+                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(300)" />
+                            </g>
+                        )}
+
+                        {comp.type === 'fiber' && (
+                            <g>
+                                {/* Fiber Coupler Body (Collimator) */}
+                                <rect x="-8" y="-15" width="16" height="30" rx="4" fill="#333" stroke="#666" strokeWidth="1" />
+                                {/* Lens / Entrance */}
+                                <circle cx="-8" cy="0" r="6" fill="#555" stroke="#888" strokeWidth="1" />
+                                {/* Fiber Boot */}
+                                <rect x="8" y="-4" width="6" height="8" fill="#222" />
+                                {/* Fiber Cable (Yellow, curved) */}
+                                <path
+                                    d="M 14 0 Q 30 0, 30 20 T 50 30"
+                                    fill="none"
+                                    stroke="orange"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M 14 0 Q 30 0, 30 20 T 50 30"
+                                    fill="none"
+                                    stroke="gold"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    style={{ opacity: 0.8 }}
+                                />
+                                {/* Optional Power Readout? Fiber usually goes to detector, but here we detect at coupler */}
+                                <g transform={`rotate(${-comp.rotation}) translate(15, -25)`}>
+                                    <text x="0" y="0" fill="#aaa" fontSize="10" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                                        {(hits[comp.id] || 0).toFixed(2)}
+                                    </text>
+                                </g>
+                            </g>
+                        )}
+
                         {/* Placeholder for others */}
-                        {comp.type !== 'laser' && comp.type !== 'mirror' && comp.type !== 'lens' && comp.type !== 'beamsplitter' && comp.type !== 'detector' && (
+                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom'].includes(comp.type) && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
                     </g>

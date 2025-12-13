@@ -302,6 +302,59 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 }
             }
 
+            // Fiber Coupler
+            if (comp.type === 'fiber') {
+                const seg = getDetectorSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+
+                if (hit && hit.t < minT) {
+                    minT = hit.t;
+                    const N = seg.normal;
+                    const D = currentDir;
+
+                    // Logic Flip: We want to accept light ALIGNED with Normal (Forward direction relative to lens).
+                    // Normal (1,0) points Right. Light (1,0) points Right.
+                    // Dot > 0 means alignment.
+                    let cosTheta = dot(D, N);
+
+                    if (cosTheta > 0) {
+                        const thetaRad = Math.acos(cosTheta);
+                        const thetaDeg = (thetaRad * 180) / Math.PI;
+                        const acceptance = comp.params?.acceptanceAngle ?? 15;
+
+                        let efficiency = 0;
+                        if (thetaDeg <= acceptance) {
+                            efficiency = 1 - (thetaDeg / acceptance);
+                        }
+                        closestHit = { t: hit.t, point: hit.point, normal: N, type: 'fiber', component: comp };
+                    } else {
+                        // Hit back side
+                        closestHit = { t: hit.t, point: hit.point, normal: N, type: 'blocker', component: comp };
+                    }
+                }
+            }
+
+            // Iris / Blocker
+            else if (comp.type === 'iris' || comp.type === 'blocker') {
+                const seg = getDetectorSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+
+                if (hit && hit.t < minT) {
+                    // Check Aperture
+                    const aperture = comp.params?.aperture ?? 20;
+                    const dist = mag(sub(hit.point, comp.position));
+
+                    if (dist > aperture / 2) {
+                        // Hit blade -> Block
+                        minT = hit.t;
+                        closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'blocker', component: comp };
+                    } else {
+                        // Pass through (Inside hole).
+                        // Do NOT update minT -> Light continues.
+                    }
+                }
+            }
+
             // Lens
             else if (comp.type === 'lens') {
                 const surfaces = getLensBoundaries(comp);
@@ -359,6 +412,36 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 const id = hit.component.id;
                 hits[id] = (hits[id] || 0) + pending.intensity;
                 break;
+            }
+            else if (hit.type === 'fiber') {
+                const id = hit.component.id;
+                // Recalculate efficiency (we did it in intersection, but easier to do here cleanly)
+                const N = hit.normal;
+                const D = currentDir;
+                const cosTheta = -dot(D, N);
+                let thetaDeg = 0;
+                if (cosTheta > -1 && cosTheta < 1) {
+                    thetaDeg = (Math.acos(cosTheta) * 180) / Math.PI;
+                }
+
+                const acceptance = hit.component.params?.acceptanceAngle ?? 15;
+                let coupling = 0;
+
+                if (cosTheta > 0 && thetaDeg <= acceptance) {
+                    // Simple linear falloff for visual feedback
+                    coupling = 1 - (thetaDeg / acceptance);
+                    // Square it for steeper falloff? 
+                    coupling = Math.max(0, coupling);
+                }
+
+                // Store coupled power
+                if (coupling > 0) {
+                    hits[id] = (hits[id] || 0) + (pending.intensity * coupling);
+                }
+                break;
+            }
+            else if (hit.type === 'blocker') {
+                break; // Just stop
             }
             else if (hit.type === 'aom') {
                 const efficiency = hit.component.params?.efficiency ?? 0.5; // 0 to 1

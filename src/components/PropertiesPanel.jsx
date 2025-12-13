@@ -149,6 +149,48 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                     </div>
                 )}
 
+                {selectedComp.type === 'fiber' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Acceptance Angle (Half-Angle)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="1"
+                                max="45"
+                                step="1"
+                                value={selectedComp.params?.acceptanceAngle || 15}
+                                onChange={(e) => updateParam('acceptanceAngle', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.acceptanceAngle || 15}°
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'iris' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Aperture Size</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0" // Fully closed
+                                max="40" // Fully open (assuming height 40)
+                                step="1"
+                                value={selectedComp.params?.aperture ?? 20} // Default 20
+                                onChange={(e) => updateParam('aperture', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.aperture ?? 20}px
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {selectedComp.type === 'lens' && (
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Shape</label>

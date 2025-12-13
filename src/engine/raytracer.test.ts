@@ -231,5 +231,98 @@ describe('Raytracer Engine', () => {
         // Standard Diverging lens behavior.
         expect(slope).toBeGreaterThan(0.01);
     });
+    it('should couple light into fiber based on angle', () => {
+        const fiber: OpticalComponent = {
+            id: 'fib1',
+            type: 'fiber',
+            position: { x: 200, y: 0 },
+
+            // Detector segment has normal (1,0) at rot=0?
+            // Let's check getDetectorSegment/getFiberSegment logic in raytracer.
+            // rot=0 -> cos(0)=1, sin(0)=0 -> Normal (1,0). Points RIGHT.
+            // If laser at (0,0) shoots (1,0), it hits fiber. Ray Dir = (1,0). Normal = (1,0).
+            // cosTheta = -dot(D, N) = -1.  Wait.
+            // If Normal points RIGHT (Away from source), we hit the BACK?
+            // Usually "Detector" faces left?
+            // Let's recheck rotation logic.
+            // If I rotate 180, normal is (-1, 0). Points LEFT.
+            // Laser (1,0) hits. dot(D, N) = -1.
+            // cosTheta = -(-1) = 1. Angle 0. Correct.
+            // So Fiber must be rotated 180 to face the source?
+            rotation: 0,
+            params: { acceptanceAngle: 30 }
+        };
+
+        const laser: OpticalComponent = {
+            id: 'laser1',
+            type: 'laser',
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            params: { power: 1, brightness: 1, glow: 0 }
+        };
+
+        // Case 1: Perfect Alignment (0 deg incidence)
+        const res1 = calculateRays([laser, fiber]);
+        const eff1 = res1.hits['fib1'];
+        expect(eff1).toBeCloseTo(1, 1);
+
+        // Case 2: Angled Incidence (Rotate Laser)
+        // Rotate laser by 15 deg.
+        // It will hit fiber at angle.
+        // Fiber at (200,0). Laser at (0,0).
+        // If we want to hit the same point but at angle, we must move laser?
+        // Or rotate fiber?
+        // Let's rotate Fiber by 15 deg (from 180 -> 195).
+        // Incidence angle should be 15 deg.
+        fiber.rotation = 15;
+        const res2 = calculateRays([laser, fiber]);
+        const eff2 = res2.hits['fib1'];
+
+        // Efficiency at 15 deg (Acceptance 30).
+        // Linear: 1 - (15/30) = 0.5.
+        expect(eff2).toBeCloseTo(0.5, 1);
+
+        // Case 3: Outside Acceptance (> 30 deg)
+        fiber.rotation = 45; // 45 deg
+        const res3 = calculateRays([laser, fiber]);
+        const eff3 = res3.hits['fib1'] || 0;
+
+        expect(eff3).toBe(0);
+    });
+
+    it('should block rays with iris aperture', () => {
+        const iris: OpticalComponent = {
+            id: 'iris1',
+            type: 'iris',
+            position: { x: 100, y: 0 },
+            rotation: 0,
+            params: { aperture: 10 } // Radius 5
+        };
+        const laserCenter: OpticalComponent = {
+            id: 'l1', type: 'laser', position: { x: 0, y: 0 }, rotation: 0, params: { power: 1, glow: 0 }
+        };
+        const laserEdge: OpticalComponent = {
+            id: 'l2', type: 'laser', position: { x: 0, y: 6 }, rotation: 0, params: { power: 1, glow: 0 }
+        }; // y=6 is outside radius 5 (Aperture 10)
+
+        // Center ray should pass (NOT hit iris? Or hit and pass transparently?)
+        // Implementation: "Do not update minT -> Ignore hit". 
+        // So ray should continue to infinity (Length > 200).
+        // Or hit something else.
+
+        const res1 = calculateRays([laserCenter, iris]);
+        const path1 = res1.rays[0].path;
+        // Should ignore iris. Path length 2 (Start, End).
+        // If it hit iris as blocker, it would stop at x=100.
+        expect(path1[path1.length - 1].x).toBeGreaterThan(150);
+
+        // Edge ray should block.
+        const res2 = calculateRays([laserEdge, iris]);
+        const path2 = res2.rays[0].path;
+        // Should stop at x=100.
+        // Wait, Raytracer logic: `closestHit = { ... type: 'blocker' }`.
+        // So path ends at hit point.
+        expect(path2[path2.length - 1].x).toBeCloseTo(100, 0);
+    });
 
 });
