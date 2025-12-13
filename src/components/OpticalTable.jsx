@@ -514,8 +514,107 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             </g>
                         )}
 
+                        {/* Half-Wave Plate */}
+                        {comp.type === 'hwp' && (
+                            <g>
+                                {/* Plate body */}
+                                <rect x="-3" y="-15" width="6" height="30" fill="rgba(100, 255, 150, 0.4)" stroke="#4a4" strokeWidth="1" rx="1" />
+                                {/* Fast axis indicator */}
+                                <line
+                                    x1="0" y1="-12" x2="0" y2="12"
+                                    stroke="#4a4"
+                                    strokeWidth="1"
+                                    strokeDasharray="2,2"
+                                    transform={`rotate(${comp.params?.fastAxis ?? 0})`}
+                                />
+                                {/* Label */}
+                                <text x="0" y="22" fill="#8f8" fontSize="8" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/2</text>
+                            </g>
+                        )}
+
+                        {/* Quarter-Wave Plate */}
+                        {comp.type === 'qwp' && (
+                            <g>
+                                {/* Plate body */}
+                                <rect x="-3" y="-15" width="6" height="30" fill="rgba(100, 180, 255, 0.4)" stroke="#48f" strokeWidth="1" rx="1" />
+                                {/* Fast axis indicator */}
+                                <line
+                                    x1="0" y1="-12" x2="0" y2="12"
+                                    stroke="#48f"
+                                    strokeWidth="1"
+                                    strokeDasharray="2,2"
+                                    transform={`rotate(${comp.params?.fastAxis ?? 45})`}
+                                />
+                                {/* Label */}
+                                <text x="0" y="22" fill="#8af" fontSize="8" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/4</text>
+                            </g>
+                        )}
+
+                        {/* Polarizer */}
+                        {comp.type === 'polarizer' && (
+                            <g>
+                                {/* Body */}
+                                <rect x="-4" y="-15" width="8" height="30" fill="#333" stroke="#666" strokeWidth="1" rx="1" />
+                                {/* Polarization stripes */}
+                                <line x1="0" y1="-12" x2="0" y2="12" stroke="#888" strokeWidth="0.5" />
+                                <line x1="-2" y1="-12" x2="-2" y2="12" stroke="#888" strokeWidth="0.5" />
+                                <line x1="2" y1="-12" x2="2" y2="12" stroke="#888" strokeWidth="0.5" />
+                                {/* Axis indicator arrow */}
+                                <line
+                                    x1="0" y1="-18" x2="0" y2="-22"
+                                    stroke="#ff0"
+                                    strokeWidth="2"
+                                    transform={`rotate(${comp.params?.polarizerAxis ?? 0})`}
+                                />
+                                <circle cx="0" cy="-22" r="2" fill="#ff0" transform={`rotate(${comp.params?.polarizerAxis ?? 0})`} />
+                            </g>
+                        )}
+
+                        {/* Polarizing Beam Splitter */}
+                        {comp.type === 'pbs' && (
+                            <g>
+                                {/* Cube body */}
+                                <rect x="-15" y="-15" width="30" height="30" fill="#445" stroke="#889" strokeWidth="1" />
+                                {/* Diagonal coating (polarizing surface) */}
+                                <line x1="-15" y1="15" x2="15" y2="-15" stroke="#8af" strokeWidth="2" />
+                                {/* PBS label */}
+                                <text x="0" y="22" fill="#8af" fontSize="8" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>PBS</text>
+                                {/* Axis indicator */}
+                                <line
+                                    x1="0" y1="-18" x2="0" y2="-25"
+                                    stroke="#ff0"
+                                    strokeWidth="2"
+                                    transform={`rotate(${comp.params?.pbsAxis ?? 0})`}
+                                />
+                            </g>
+                        )}
+
+                        {/* Polarization Detector */}
+                        {comp.type === 'poldetector' && (
+                            <g>
+                                {/* Sensor Body (similar to detector but different color) */}
+                                <rect x="-5" y="-20" width="10" height="40" fill="#234" stroke="#68f" strokeWidth="1" />
+                                {/* Active Area with polarization stripes */}
+                                <rect x="-5" y="-18" width="4" height="36" fill="#123" />
+                                <line x1="-4" y1="-15" x2="-4" y2="15" stroke="#68f" strokeWidth="0.5" />
+                                <line x1="-2" y1="-15" x2="-2" y2="15" stroke="#68f" strokeWidth="0.5" />
+                                {/* Readout Overlay (shows polarization) */}
+                                {(comp.params?.showReadout ?? true) && (
+                                    <g transform={`rotate(${-comp.rotation}) translate(15, 0)`}>
+                                        <rect x="-5" y="-16" width="55" height="32" rx="4" fill="rgba(0,0,0,0.85)" stroke="#68f" />
+                                        <text x="22" y="-4" fill="#8cf" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                                            I: {(hits[comp.id] || 0).toFixed(2)}
+                                        </text>
+                                        <text x="22" y="8" fill="#fc8" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                                            θ: {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°
+                                        </text>
+                                    </g>
+                                )}
+                            </g>
+                        )}
+
                         {/* Placeholder for others */}
-                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text'].includes(comp.type) && (
+                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector'].includes(comp.type) && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
                     </g>

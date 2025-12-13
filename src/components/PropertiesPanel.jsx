@@ -146,6 +146,139 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             />
                             <span style={{ fontSize: '0.8em', color: '#aaa' }}>{selectedComp.params?.color || '#ff0000'}</span>
                         </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Polarization Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.polarization ?? 0}
+                                onChange={(e) => updateParam('polarization', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.polarization ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            0° = Horizontal, 90° = Vertical
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'hwp' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Fast Axis Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.fastAxis ?? 0}
+                                onChange={(e) => updateParam('fastAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.fastAxis ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Rotates polarization by 2×(fast axis - input)
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'qwp' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Fast Axis Angle</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.fastAxis ?? 45}
+                                onChange={(e) => updateParam('fastAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.fastAxis ?? 45}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Converts linear ↔ circular polarization
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'polarizer' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Polarizer Axis</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.polarizerAxis ?? 0}
+                                onChange={(e) => updateParam('polarizerAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.polarizerAxis ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            I = I₀ cos²(θ) - Malus's Law
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'pbs' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>PBS Axis (p-pol transmission)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="180"
+                                step="1"
+                                value={selectedComp.params?.pbsAxis ?? 0}
+                                onChange={(e) => updateParam('pbsAxis', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.pbsAxis ?? 0}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            p-pol (aligned) transmits, s-pol (⊥) reflects
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'poldetector' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedComp.params?.showReadout ?? true}
+                                onChange={(e) => updateParam('showReadout', e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Show Readout
+                        </label>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '8px' }}>
+                            Displays intensity (I) and polarization angle (θ)
+                        </div>
                     </div>
                 )}
 

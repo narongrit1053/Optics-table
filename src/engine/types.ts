@@ -3,7 +3,7 @@ export type Vector2D = {
     y: number;
 };
 
-export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris' | 'cavity' | 'text';
+export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris' | 'cavity' | 'text' | 'hwp' | 'qwp' | 'polarizer' | 'pbs' | 'poldetector';
 
 export interface OpticalComponent {
     id: string;
@@ -34,6 +34,11 @@ export interface OpticalComponent {
         content?: string; // Text content
         fontSize?: number; // Font size
         textColor?: string; // Text color
+        // Polarization parameters
+        polarization?: number; // Polarization angle in degrees (0=H, 90=V)
+        fastAxis?: number; // Waveplate fast axis angle (degrees)
+        polarizerAxis?: number; // Polarizer transmission axis (degrees)
+        pbsAxis?: number; // PBS splitting axis (degrees, 0=H transmitted)
     };
 }
 
@@ -43,4 +48,6 @@ export interface Ray {
     intensity: number;
     color: string;
     path: Vector2D[]; // Points along the ray path
+    polarization?: number; // Polarization angle in degrees (0=H, 90=V, undefined=unpolarized)
 }
+
