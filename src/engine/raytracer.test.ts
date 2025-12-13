@@ -231,5 +231,84 @@ describe('Raytracer Engine', () => {
         // Standard Diverging lens behavior.
         expect(slope).toBeGreaterThan(0.01);
     });
+    it('should couple light into fiber based on angle', () => {
+        const fiber: OpticalComponent = {
+            id: 'fib1',
+            type: 'fiber',
+            position: { x: 200, y: 0 },
+            // At rotation=0, fiber normal points LEFT (-1,0) to face incoming light
+            // Laser shoots RIGHT (1,0), so it hits the front of the fiber
+            rotation: 0,
+            params: { acceptanceAngle: 30, coreSize: 24 } // Large core to not block center ray
+        };
+
+        const laser: OpticalComponent = {
+            id: 'laser1',
+            type: 'laser',
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            params: { power: 1, brightness: 1, glow: 0 }
+        };
+
+        // Case 1: Perfect Alignment (0 deg incidence) - should get ~1.0 (Gaussian peak)
+        const res1 = calculateRays([laser, fiber]);
+        const eff1 = res1.hits['fib1'];
+        expect(eff1).toBeCloseTo(1, 1);
+
+        // Case 2: Angled Incidence (Rotate Fiber by 15 deg)
+        // This tilts the fiber's acceptance cone away from the incoming light
+        fiber.rotation = 15;
+        const res2 = calculateRays([laser, fiber]);
+        const eff2 = res2.hits['fib1'];
+
+        // Gaussian efficiency at 15 deg with acceptance 30:
+        // sigma = 30 / 2.355 ≈ 12.74
+        // exp(-(15^2)/(2*12.74^2)) = exp(-225/324.6) ≈ 0.5
+        expect(eff2).toBeGreaterThan(0.4);
+        expect(eff2).toBeLessThan(0.7);
+
+        // Case 3: Outside Acceptance (> 30 deg)
+        fiber.rotation = 45; // 45 deg
+        const res3 = calculateRays([laser, fiber]);
+        const eff3 = res3.hits['fib1'] || 0;
+
+        // At 45 deg, Gaussian ≈ 0.04 which is very low
+        expect(eff3).toBeLessThan(0.1);
+    });
+
+    it('should block rays with iris aperture', () => {
+        const iris: OpticalComponent = {
+            id: 'iris1',
+            type: 'iris',
+            position: { x: 100, y: 0 },
+            rotation: 0,
+            params: { aperture: 10 } // Radius 5
+        };
+        const laserCenter: OpticalComponent = {
+            id: 'l1', type: 'laser', position: { x: 0, y: 0 }, rotation: 0, params: { power: 1, glow: 0 }
+        };
+        const laserEdge: OpticalComponent = {
+            id: 'l2', type: 'laser', position: { x: 0, y: 6 }, rotation: 0, params: { power: 1, glow: 0 }
+        }; // y=6 is outside radius 5 (Aperture 10)
+
+        // Center ray should pass (NOT hit iris? Or hit and pass transparently?)
+        // Implementation: "Do not update minT -> Ignore hit". 
+        // So ray should continue to infinity (Length > 200).
+        // Or hit something else.
+
+        const res1 = calculateRays([laserCenter, iris]);
+        const path1 = res1.rays[0].path;
+        // Should ignore iris. Path length 2 (Start, End).
+        // If it hit iris as blocker, it would stop at x=100.
+        expect(path1[path1.length - 1].x).toBeGreaterThan(150);
+
+        // Edge ray should block.
+        const res2 = calculateRays([laserEdge, iris]);
+        const path2 = res2.rays[0].path;
+        // Should stop at x=100.
+        // Wait, Raytracer logic: `closestHit = { ... type: 'blocker' }`.
+        // So path ends at hit point.
+        expect(path2[path2.length - 1].x).toBeCloseTo(100, 0);
+    });
 
 });

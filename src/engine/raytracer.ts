@@ -66,6 +66,41 @@ const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D
     return { p1, p2, normal };
 };
 
+// Iris - dedicated segment with width matching visual (diameter 32 = 2 * radius 16)
+const getIrisSegment = (iris: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
+    const width = 32; // Match visual circle radius 16 * 2
+    const halfWidth = width / 2;
+    const p1Local = { x: 0, y: -halfWidth };
+    const p2Local = { x: 0, y: halfWidth };
+
+    const p1 = rotatePoint({ x: iris.position.x + p1Local.x, y: iris.position.y + p1Local.y }, iris.position, iris.rotation);
+    const p2 = rotatePoint({ x: iris.position.x + p2Local.x, y: iris.position.y + p2Local.y }, iris.position, iris.rotation);
+
+    const normRad = (iris.rotation * Math.PI) / 180;
+    const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
+
+    return { p1, p2, normal };
+};
+
+// Fiber Coupler - segment for the coupling lens/aperture
+const getFiberSegment = (fiber: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
+    const width = 30; // Match visual coupler body height
+    const halfWidth = width / 2;
+    // Fiber lens is at x=-8 in local coordinates (front of coupler)
+    const p1Local = { x: -8, y: -halfWidth };
+    const p2Local = { x: -8, y: halfWidth };
+
+    const p1 = rotatePoint({ x: fiber.position.x + p1Local.x, y: fiber.position.y + p1Local.y }, fiber.position, fiber.rotation);
+    const p2 = rotatePoint({ x: fiber.position.x + p2Local.x, y: fiber.position.y + p2Local.y }, fiber.position, fiber.rotation);
+
+    // Normal points toward the incoming light direction (LEFT in default orientation)
+    // At rotation=0, normal should point LEFT (-1, 0) to face incoming light
+    const normRad = ((fiber.rotation + 180) * Math.PI) / 180;
+    const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
+
+    return { p1, p2, normal };
+};
+
 // AOM: Rectangular Crystal (Interaction Line)
 const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
     const width = 40;
@@ -302,6 +337,62 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 }
             }
 
+            // Fiber Coupler
+            if (comp.type === 'fiber') {
+                const seg = getFiberSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+
+                if (hit && hit.t < minT) {
+                    const N = seg.normal;
+                    const D = currentDir;
+
+                    // Check if light is coming from the front (hitting the coupling lens)
+                    // Normal points toward incoming light, so dot(D, N) < 0 means front hit
+                    const cosIncident = -dot(D, N); // Negate because D points toward surface
+
+                    if (cosIncident > 0) {
+                        // Front hit - check core aperture first (spatial filtering)
+                        const coreRadius = (comp.params?.coreSize ?? 12) / 2;
+                        const distFromCenter = mag(sub(hit.point, comp.position));
+
+                        if (distFromCenter > coreRadius) {
+                            // Hit outside core - blocked by cladding/housing
+                            minT = hit.t;
+                            closestHit = { t: hit.t, point: hit.point, normal: N, type: 'blocker', component: comp };
+                        } else {
+                            // Inside core - check angular acceptance
+                            minT = hit.t;
+                            closestHit = { t: hit.t, point: hit.point, normal: N, type: 'fiber', component: comp };
+                        }
+                    } else {
+                        // Back hit - blocked
+                        minT = hit.t;
+                        closestHit = { t: hit.t, point: hit.point, normal: N, type: 'blocker', component: comp };
+                    }
+                }
+            }
+
+            // Iris / Blocker
+            else if (comp.type === 'iris' || comp.type === 'blocker') {
+                const seg = getIrisSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+
+                if (hit && hit.t < minT) {
+                    // Check Aperture - cap at max visual size (32)
+                    const aperture = Math.min(comp.params?.aperture ?? 20, 32);
+                    const dist = mag(sub(hit.point, comp.position));
+
+                    if (dist > aperture / 2) {
+                        // Hit blade -> Block
+                        minT = hit.t;
+                        closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'blocker', component: comp };
+                    } else {
+                        // Pass through (Inside hole).
+                        // Do NOT update minT -> Light continues.
+                    }
+                }
+            }
+
             // Lens
             else if (comp.type === 'lens') {
                 const surfaces = getLensBoundaries(comp);
@@ -359,6 +450,38 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 const id = hit.component.id;
                 hits[id] = (hits[id] || 0) + pending.intensity;
                 break;
+            }
+            else if (hit.type === 'fiber') {
+                const id = hit.component.id;
+                const N = hit.normal;
+                const D = currentDir;
+
+                // Calculate incidence angle (cosTheta = -dot because D points into surface)
+                const cosTheta = -dot(D, N);
+
+                // Clamp cosTheta to valid range for acos
+                const clampedCos = Math.max(-1, Math.min(1, cosTheta));
+                const thetaDeg = (Math.acos(clampedCos) * 180) / Math.PI;
+
+                const acceptance = hit.component.params?.acceptanceAngle ?? 15;
+                let coupling = 0;
+
+                if (cosTheta > 0 && thetaDeg <= acceptance) {
+                    // Gaussian coupling efficiency (realistic fiber behavior)
+                    // sigma = acceptance / 2.355 converts half-angle to Gaussian sigma (FWHM)
+                    const sigma = acceptance / 2.355;
+                    coupling = Math.exp(-(thetaDeg * thetaDeg) / (2 * sigma * sigma));
+                    coupling = Math.max(0, coupling);
+                }
+
+                // Store coupled power
+                if (coupling > 0) {
+                    hits[id] = (hits[id] || 0) + (pending.intensity * coupling);
+                }
+                break;
+            }
+            else if (hit.type === 'blocker') {
+                break; // Just stop
             }
             else if (hit.type === 'aom') {
                 const efficiency = hit.component.params?.efficiency ?? 0.5; // 0 to 1

@@ -3,7 +3,7 @@ export type Vector2D = {
     y: number;
 };
 
-export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom';
+export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris';
 
 export interface OpticalComponent {
     id: string;
@@ -23,6 +23,10 @@ export interface OpticalComponent {
         efficiency?: number; // AOM diffraction efficiency (0-1)
         deviation?: number; // AOM deflection angle (degrees)
         lensShape?: 'convex' | 'concave' | 'plano-convex' | 'plano-concave'; // Lens geometry
+        acceptanceAngle?: number; // Fiber NA equivalent (degrees)
+        coreSize?: number; // Fiber core/mode field diameter for spatial filtering
+        aperture?: number; // Iris aperture diameter
+        showReadout?: boolean; // Show power readout on detector/fiber
     };
 }
 

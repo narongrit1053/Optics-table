@@ -1,25 +1,24 @@
 import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-const COMPONENT_TYPES = [
-    { type: 'laser', label: 'Laser Source', icon: '🔦' },
-    { type: 'mirror', label: 'Mirror', icon: '🪞' },
-    { type: 'beamsplitter', label: 'Beam Splitter', icon: '◫' },
-    { type: 'lens', label: 'Lens', icon: '🔍' },
-    { type: 'detector', label: 'Detector', icon: '📡' },
-    { type: 'aom', label: 'AOM', icon: '⚡' },
+const tools = [
+    { id: 'laser', label: 'Laser Source', icon: '🔦', params: { power: 100, color: '#ff0000', label: 'Laser' } },
+    { id: 'mirror', label: 'Mirror', icon: '🪞' },
+    { id: 'lens', label: 'Lens', icon: '🔍', params: { focalLength: 100, lensShape: 'convex' } },
+    { id: 'beamsplitter', label: 'Beam Splitter', icon: '◪', params: { transmission: 0.5 } },
+    { id: 'iris', label: 'Iris', icon: '◎', params: { aperture: 20 } },
+    { id: 'detector', label: 'Detector', icon: '📡' },
+    { id: 'aom', label: 'AOM', icon: '🔮', params: { efficiency: 0.5, deviation: 5 } },
+    { id: 'fiber', label: 'Fiber Coupler', icon: '🧶', params: { acceptanceAngle: 15 } }
 ];
 
 const Sidebar = ({ setComponents }) => {
     const [collapsed, setCollapsed] = useState(false);
 
     const addComponent = (type) => {
-        const defaultParams = {
-            power: 1,
-            color: type === 'laser' ? '#ff0000' : undefined,
-            focalLength: type === 'lens' ? 100 : undefined,
-            transmission: type === 'beamsplitter' ? 0.5 : undefined,
-        };
+        const tool = tools.find(t => t.id === type);
+        // Default params from tool definition or empty object
+        const defaultParams = tool?.params || {};
 
         setComponents((prev) => [
             ...prev,
@@ -27,8 +26,8 @@ const Sidebar = ({ setComponents }) => {
                 id: uuidv4(),
                 type,
                 position: { x: 400, y: 300 },
-                rotation: type === 'mirror' || type === 'lens' ? 90 : 0,
-                params: defaultParams
+                rotation: type === 'mirror' || type === 'lens' || type === 'aom' || type === 'beamsplitter' || type === 'iris' ? 90 : 0,
+                params: { ...defaultParams }
             },
         ]);
     };
@@ -51,13 +50,13 @@ const Sidebar = ({ setComponents }) => {
             </div>
 
             <div className="overlay-content">
-                {COMPONENT_TYPES.map((item) => (
+                {tools.map((item) => (
                     <div
-                        key={item.type}
+                        key={item.id}
                         className="component-item"
                         draggable
-                        onDragStart={(e) => handleDragStart(e, item.type)}
-                        onClick={() => addComponent(item.type)}
+                        onDragStart={(e) => handleDragStart(e, item.id)}
+                        onClick={() => addComponent(item.id)}
                         title="Drag to table or Click to add"
                     >
                         <span style={{ marginRight: '10px', fontSize: '1.2em' }}>{item.icon}</span>

@@ -149,6 +149,98 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                     </div>
                 )}
 
+                {selectedComp.type === 'fiber' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Acceptance Angle (NA Half-Angle)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="1"
+                                max="45"
+                                step="1"
+                                value={selectedComp.params?.acceptanceAngle || 15}
+                                onChange={(e) => updateParam('acceptanceAngle', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.acceptanceAngle || 15}°
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Angular acceptance (Gaussian falloff)
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Core Size (Mode Field)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="4"
+                                max="24"
+                                step="2"
+                                value={selectedComp.params?.coreSize || 12}
+                                onChange={(e) => updateParam('coreSize', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.coreSize || 12}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Spatial filtering diameter
+                        </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', marginTop: '12px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedComp.params?.showReadout ?? true}
+                                onChange={(e) => updateParam('showReadout', e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Show Power Readout
+                        </label>
+                    </div>
+                )}
+
+                {selectedComp.type === 'detector' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedComp.params?.showReadout ?? true}
+                                onChange={(e) => updateParam('showReadout', e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            Show Power Readout
+                        </label>
+                    </div>
+                )}
+
+                {selectedComp.type === 'iris' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Aperture Diameter</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0"
+                                max="32"
+                                step="1"
+                                value={selectedComp.params?.aperture ?? 20}
+                                onChange={(e) => updateParam('aperture', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.aperture ?? 20}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            0 = closed, 32 = fully open
+                        </div>
+                    </div>
+                )}
+
                 {selectedComp.type === 'lens' && (
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Shape</label>
