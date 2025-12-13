@@ -241,6 +241,90 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                     </div>
                 )}
 
+                {selectedComp.type === 'cavity' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Reflectivity</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="0.5"
+                                max="0.99"
+                                step="0.01"
+                                value={selectedComp.params?.reflectivity ?? 0.95}
+                                onChange={(e) => updateParam('reflectivity', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '45px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {Math.round((selectedComp.params?.reflectivity ?? 0.95) * 100)}%
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '0.75em', color: '#666', marginTop: '3px' }}>
+                            Mirror reflectivity (higher = more bounces)
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Cavity Length</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="40"
+                                max="200"
+                                step="10"
+                                value={selectedComp.params?.cavityLength ?? 100}
+                                onChange={(e) => updateParam('cavityLength', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '45px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.cavityLength ?? 100}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'text' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Text Content</label>
+                        <input
+                            type="text"
+                            onFocus={saveCheckpoint}
+                            value={selectedComp.params?.content || ''}
+                            onChange={(e) => updateParam('content', e.target.value)}
+                            placeholder="Enter text..."
+                            style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #555', background: '#222', color: '#fff' }}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Font Size</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="8"
+                                max="48"
+                                step="2"
+                                value={selectedComp.params?.fontSize ?? 16}
+                                onChange={(e) => updateParam('fontSize', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '35px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.fontSize ?? 16}px
+                            </span>
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Text Color</label>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <input
+                                type="color"
+                                onFocus={saveCheckpoint}
+                                value={selectedComp.params?.textColor || '#ffffff'}
+                                onChange={(e) => updateParam('textColor', e.target.value)}
+                                style={{ width: '50px', height: '30px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.8em', color: '#aaa' }}>{selectedComp.params?.textColor || '#ffffff'}</span>
+                        </div>
+                    </div>
+                )}
+
                 {selectedComp.type === 'lens' && (
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Shape</label>

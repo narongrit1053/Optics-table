@@ -432,8 +432,90 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             </g>
                         )}
 
+                        {/* Optical Cavity - two parallel mirrors */}
+                        {comp.type === 'cavity' && (
+                            <g>
+                                {/* Cavity frame/body */}
+                                <rect
+                                    x={-(comp.params?.cavityLength ?? 100) / 2 - 5}
+                                    y="-25"
+                                    width={(comp.params?.cavityLength ?? 100) + 10}
+                                    height="50"
+                                    fill="none"
+                                    stroke="#444"
+                                    strokeWidth="1"
+                                    strokeDasharray="4,2"
+                                    rx="4"
+                                />
+                                {/* Left mirror (curved) */}
+                                <path
+                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -20 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 8} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    fill="none"
+                                    stroke="#aaccff"
+                                    strokeWidth="3"
+                                />
+                                <path
+                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -20 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 8} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    fill="none"
+                                    stroke="silver"
+                                    strokeWidth="1.5"
+                                />
+                                {/* Right mirror (curved) */}
+                                <path
+                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -20 Q ${(comp.params?.cavityLength ?? 100) / 2 + 8} 0 ${(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    fill="none"
+                                    stroke="#aaccff"
+                                    strokeWidth="3"
+                                />
+                                <path
+                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -20 Q ${(comp.params?.cavityLength ?? 100) / 2 + 8} 0 ${(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    fill="none"
+                                    stroke="silver"
+                                    strokeWidth="1.5"
+                                />
+                                {/* Center axis line */}
+                                <line
+                                    x1={-(comp.params?.cavityLength ?? 100) / 2 + 5}
+                                    y1="0"
+                                    x2={(comp.params?.cavityLength ?? 100) / 2 - 5}
+                                    y2="0"
+                                    stroke="#333"
+                                    strokeWidth="1"
+                                    strokeDasharray="2,4"
+                                />
+                            </g>
+                        )}
+
+                        {/* Text Label */}
+                        {comp.type === 'text' && (
+                            <g>
+                                {/* Transparent hit area for click/drag - sized based on text */}
+                                <rect
+                                    x={-((comp.params?.content?.length || 5) * (comp.params?.fontSize || 16) * 0.35)}
+                                    y={-((comp.params?.fontSize || 16) * 0.6)}
+                                    width={(comp.params?.content?.length || 5) * (comp.params?.fontSize || 16) * 0.7}
+                                    height={(comp.params?.fontSize || 16) * 1.2}
+                                    fill="transparent"
+                                    stroke="none"
+                                    style={{ cursor: 'grab' }}
+                                />
+                                <text
+                                    x="0"
+                                    y="0"
+                                    fill={comp.params?.textColor || '#ffffff'}
+                                    fontSize={comp.params?.fontSize || 16}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontFamily="Arial, sans-serif"
+                                    style={{ userSelect: 'none' }}
+                                >
+                                    {comp.params?.content || 'Label'}
+                                </text>
+                            </g>
+                        )}
+
                         {/* Placeholder for others */}
-                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom'].includes(comp.type) && (
+                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text'].includes(comp.type) && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
                     </g>

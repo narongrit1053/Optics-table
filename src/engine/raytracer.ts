@@ -117,6 +117,36 @@ const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, nor
     return { p1, p2, normal };
 };
 
+// Optical Cavity - two parallel mirrors
+const getCavitySegments = (cavity: OpticalComponent): { left: { p1: Vector2D, p2: Vector2D, normal: Vector2D }, right: { p1: Vector2D, p2: Vector2D, normal: Vector2D } } => {
+    const height = 40; // Mirror height
+    const halfHeight = height / 2;
+    const length = cavity.params?.cavityLength ?? 100;
+    const halfLength = length / 2;
+
+    // Left mirror (entrance)
+    const leftP1Local = { x: -halfLength, y: -halfHeight };
+    const leftP2Local = { x: -halfLength, y: halfHeight };
+    const leftP1 = rotatePoint({ x: cavity.position.x + leftP1Local.x, y: cavity.position.y + leftP1Local.y }, cavity.position, cavity.rotation);
+    const leftP2 = rotatePoint({ x: cavity.position.x + leftP2Local.x, y: cavity.position.y + leftP2Local.y }, cavity.position, cavity.rotation);
+
+    // Right mirror (back)
+    const rightP1Local = { x: halfLength, y: -halfHeight };
+    const rightP2Local = { x: halfLength, y: halfHeight };
+    const rightP1 = rotatePoint({ x: cavity.position.x + rightP1Local.x, y: cavity.position.y + rightP1Local.y }, cavity.position, cavity.rotation);
+    const rightP2 = rotatePoint({ x: cavity.position.x + rightP2Local.x, y: cavity.position.y + rightP2Local.y }, cavity.position, cavity.rotation);
+
+    const normRad = (cavity.rotation * Math.PI) / 180;
+    // Left mirror normal points right (into cavity), right mirror normal points left (into cavity)
+    const normalRight = { x: Math.cos(normRad), y: Math.sin(normRad) };
+    const normalLeft = { x: -Math.cos(normRad), y: -Math.sin(normRad) };
+
+    return {
+        left: { p1: leftP1, p2: leftP2, normal: normalRight }, // Normal points INTO cavity
+        right: { p1: rightP1, p2: rightP2, normal: normalLeft } // Normal points INTO cavity
+    };
+};
+
 // Beam Splitter: Diagonal Line Segment
 const getBeamSplitterSegment = (bs: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
     const size = 30;
@@ -393,6 +423,29 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 }
             }
 
+            // Optical Cavity - two parallel mirrors
+            else if (comp.type === 'cavity') {
+                const segs = getCavitySegments(comp);
+
+                // Check left mirror (entrance)
+                const hitLeft = intersectRaySegment(currentOrigin, currentDir, segs.left.p1, segs.left.p2);
+                if (hitLeft && hitLeft.t < minT) {
+                    minT = hitLeft.t;
+                    let N = segs.left.normal;
+                    if (dot(currentDir, N) > 0) N = mul(N, -1);
+                    closestHit = { t: hitLeft.t, point: hitLeft.point, normal: N, type: 'cavity', component: comp };
+                }
+
+                // Check right mirror (back)
+                const hitRight = intersectRaySegment(currentOrigin, currentDir, segs.right.p1, segs.right.p2);
+                if (hitRight && hitRight.t < minT) {
+                    minT = hitRight.t;
+                    let N = segs.right.normal;
+                    if (dot(currentDir, N) > 0) N = mul(N, -1);
+                    closestHit = { t: hitRight.t, point: hitRight.point, normal: N, type: 'cavity', component: comp };
+                }
+            }
+
             // Lens
             else if (comp.type === 'lens') {
                 const surfaces = getLensBoundaries(comp);
@@ -482,6 +535,36 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
             }
             else if (hit.type === 'blocker') {
                 break; // Just stop
+            }
+            else if (hit.type === 'cavity') {
+                // Cavity mirror - reflects most light, transmits some
+                const reflectivity = hit.component.params?.reflectivity ?? 0.95;
+                const N = hit.normal;
+                const dotDN = dot(currentDir, N);
+
+                // Reflected ray
+                if (pending.intensity * reflectivity > MIN_INTENSITY) {
+                    const R = sub(currentDir, mul(N, 2 * dotDN));
+                    nextRays.push({
+                        origin: add(hit.point, mul(normalize(R), EPSILON * 2)),
+                        dir: normalize(R),
+                        intensity: pending.intensity * reflectivity,
+                        color: pending.color,
+                        bounces: pending.bounces + 1
+                    });
+                }
+
+                // Transmitted ray (leakage through mirror)
+                if (pending.intensity * (1 - reflectivity) > MIN_INTENSITY) {
+                    nextRays.push({
+                        origin: add(hit.point, mul(currentDir, EPSILON * 2)),
+                        dir: currentDir,
+                        intensity: pending.intensity * (1 - reflectivity),
+                        color: pending.color,
+                        bounces: pending.bounces + 1
+                    });
+                }
+                break;
             }
             else if (hit.type === 'aom') {
                 const efficiency = hit.component.params?.efficiency ?? 0.5; // 0 to 1

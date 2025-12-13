@@ -3,7 +3,7 @@ export type Vector2D = {
     y: number;
 };
 
-export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris';
+export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris' | 'cavity' | 'text';
 
 export interface OpticalComponent {
     id: string;
@@ -27,6 +27,13 @@ export interface OpticalComponent {
         coreSize?: number; // Fiber core/mode field diameter for spatial filtering
         aperture?: number; // Iris aperture diameter
         showReadout?: boolean; // Show power readout on detector/fiber
+        // Cavity parameters
+        reflectivity?: number; // Mirror reflectivity (0-1)
+        cavityLength?: number; // Distance between mirrors
+        // Text annotation parameters
+        content?: string; // Text content
+        fontSize?: number; // Font size
+        textColor?: string; // Text color
     };
 }
 

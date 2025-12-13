@@ -6,10 +6,12 @@ const tools = [
     { id: 'mirror', label: 'Mirror', icon: '🪞' },
     { id: 'lens', label: 'Lens', icon: '🔍', params: { focalLength: 100, lensShape: 'convex' } },
     { id: 'beamsplitter', label: 'Beam Splitter', icon: '◪', params: { transmission: 0.5 } },
+    { id: 'cavity', label: 'Optical Cavity', icon: '⟪⟫', params: { reflectivity: 0.95, cavityLength: 100 } },
     { id: 'iris', label: 'Iris', icon: '◎', params: { aperture: 20 } },
     { id: 'detector', label: 'Detector', icon: '📡' },
     { id: 'aom', label: 'AOM', icon: '🔮', params: { efficiency: 0.5, deviation: 5 } },
-    { id: 'fiber', label: 'Fiber Coupler', icon: '🧶', params: { acceptanceAngle: 15 } }
+    { id: 'fiber', label: 'Fiber Coupler', icon: '🧶', params: { acceptanceAngle: 15 } },
+    { id: 'text', label: 'Text Label', icon: '📝', params: { content: 'Label', fontSize: 16, textColor: '#ffffff' } }
 ];
 
 const Sidebar = ({ setComponents }) => {
@@ -26,7 +28,7 @@ const Sidebar = ({ setComponents }) => {
                 id: uuidv4(),
                 type,
                 position: { x: 400, y: 300 },
-                rotation: type === 'mirror' || type === 'lens' || type === 'aom' || type === 'beamsplitter' || type === 'iris' ? 90 : 0,
+                rotation: type === 'mirror' || type === 'lens' || type === 'aom' || type === 'beamsplitter' || type === 'iris' || type === 'cavity' ? 90 : 0,
                 params: { ...defaultParams }
             },
         ]);
