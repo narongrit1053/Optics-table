@@ -195,4 +195,41 @@ describe('Raytracer Engine', () => {
         expect(hasFirstOrder).toBe(true);
     });
 
+    it('should diverge beam with concave lens', () => {
+        const lens: OpticalComponent = {
+            id: 'lens1',
+            type: 'lens',
+            position: { x: 100, y: 0 },
+            rotation: 0,
+            params: { lensShape: 'concave', focalLength: 50 }
+        };
+        // Laser offset from axis to see divergence
+        const laser: OpticalComponent = {
+            id: 'laser1',
+            type: 'laser',
+            position: { x: 0, y: 10 },
+            rotation: 0,
+            params: { brightness: 1, glow: 0 }
+        };
+
+        const result = calculateRays([laser, lens]);
+        const centerRay = result.rays.find(r => r.start.y === 10);
+
+        if (!centerRay) throw new Error('No ray found');
+
+        const path = centerRay.path;
+        expect(path.length).toBeGreaterThan(2);
+
+        const lastPoint = path[path.length - 1];
+        const prevPoint = path[path.length - 2];
+
+        // Slope = dy/dx
+        const slope = (lastPoint.y - prevPoint.y) / (lastPoint.x - prevPoint.x);
+
+        // Initial ray is horizontal (Slope 0).
+        // Diverging lens: Ray at y=10 should bend UP (Slope > 0).
+        // Standard Diverging lens behavior.
+        expect(slope).toBeGreaterThan(0.01);
+    });
+
 });
