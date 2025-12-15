@@ -4,6 +4,8 @@ import './App.css';
 import OpticalTable from './components/OpticalTable';
 import Sidebar from './components/Sidebar';
 import PropertiesPanel from './components/PropertiesPanel';
+import ComponentSearch from './components/ComponentSearch';
+import { tools } from './data/tools';
 
 function App() {
   // History State structure: { past: Array<Array<Comp>>, present: Array<Comp>, future: Array<Array<Comp>> }
@@ -31,6 +33,7 @@ function App() {
 
   const [selectedCompId, setSelectedCompId] = useState(null);
   const [clipboard, setClipboard] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
 
   // Helper to access current components easily
   const components = history.present;
@@ -145,11 +148,43 @@ function App() {
 
   // --- Keyboard Shortcuts ---
 
+  const addComponent = (type) => {
+    const tool = tools.find(t => t.id === type);
+    const defaultParams = tool?.params || {};
+
+    // Add to center of view (approximate if viewBox unknown here, but we can default to center 0,0 or just offset)
+    // Sidebar adds to 400,300. We'll duplicate logic or better yet, make it relative to view.
+    // Since App doesn't track viewBox (OpticalTable does), we'll add to a safe default location (0,0) or last mouse pos?
+    // Let's add to (0,0) for now, user can move it. Or better: (100, 100) to be visible.
+
+    const newComp = {
+      id: uuidv4(),
+      type,
+      position: { x: 0, y: 0 }, // Center-ish
+      rotation: ['mirror', 'lens', 'aom', 'beamsplitter', 'iris', 'cavity', 'hwp', 'qwp', 'polarizer', 'pbs'].includes(type) ? 90 : 0,
+      params: { ...defaultParams }
+    };
+
+    updateComponents([...history.present, newComp], true);
+    setSelectedCompId(newComp.id);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Input fields should ignore shortcuts (except maybe Ctrl+Z/C/V which browser handles, but for global app state we might want to override or let pass)
       // Usually good to block typical shortcuts if focusing an input
+      // Input fields should ignore shortcuts (except maybe Ctrl+Z/C/V which browser handles, but for global app state we might want to override or let pass)
+      // Usually good to block typical shortcuts if focusing an input
+      // EXCEPTION: If Esc is pressed, we might want to handle it even in input?
+      // ComponentSearch handles its own input keydown, but we want to open it globally.
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      // Toggle Search with '/'
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setShowSearch(true);
+        return;
+      }
 
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
@@ -225,6 +260,11 @@ function App() {
         components={components}
         setComponents={setComponentsAdapter}
         saveCheckpoint={saveCheckpoint}
+      />
+      <ComponentSearch
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        onSelect={addComponent}
       />
     </div>
   );
