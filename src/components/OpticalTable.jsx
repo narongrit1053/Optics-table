@@ -14,7 +14,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
     const svgRef = useRef(null);
 
     // Calculate Rays
-    const { rays, hits } = useMemo(() => calculateRays(components), [components]);
+    const { rays, hits, hitColors } = useMemo(() => calculateRays(components), [components]);
 
     // --- View Navigation (Pan/Zoom) ---
     const handleWheel = (e) => {
@@ -172,7 +172,56 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
     };
 
     const resetView = () => {
-        setViewBox({ x: -1000, y: -500, w: 2000, h: 1000 });
+        const DEFAULT_W = 2000;
+        const DEFAULT_H = 1000;
+        const SCREEN_COVERAGE = 0.8; // 80%
+        const COMP_RADIUS = 100; // Estimated max radius of a component
+
+        if (!components || components.length === 0) {
+            setViewBox({ x: -1000, y: -500, w: DEFAULT_W, h: DEFAULT_H });
+            return;
+        }
+
+        // Calculate bounding box containing all components
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+        components.forEach(c => {
+            if (c.position) {
+                minX = Math.min(minX, c.position.x - COMP_RADIUS);
+                maxX = Math.max(maxX, c.position.x + COMP_RADIUS);
+                minY = Math.min(minY, c.position.y - COMP_RADIUS);
+                maxY = Math.max(maxY, c.position.y + COMP_RADIUS);
+            }
+        });
+
+        // Fallback for weird data
+        if (!isFinite(minX)) {
+            setViewBox({ x: -1000, y: -500, w: DEFAULT_W, h: DEFAULT_H });
+            return;
+        }
+
+        const contentW = maxX - minX;
+        const contentH = maxY - minY;
+
+        // "Boundary set as 80% of the screen"
+        // Target dimension = Content dimension / 0.8
+        const autoW = contentW / SCREEN_COVERAGE;
+        const autoH = contentH / SCREEN_COVERAGE;
+
+        // "Minimum is default reset view"
+        const targetW = Math.max(DEFAULT_W, autoW);
+        const targetH = Math.max(DEFAULT_H, autoH);
+
+        // Center on the content
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        setViewBox({
+            x: centerX - targetW / 2,
+            y: centerY - targetH / 2,
+            w: targetW,
+            h: targetH
+        });
     };
 
     return (
@@ -409,17 +458,17 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                 <path
                                     d="M 28 0 Q 60 0, 60 40 T 100 60"
                                     fill="none"
-                                    stroke="orange"
+                                    stroke={hitColors?.[comp.id] || 'orange'}
                                     strokeWidth="6"
                                     strokeLinecap="round"
                                 />
                                 <path
                                     d="M 28 0 Q 60 0, 60 40 T 100 60"
                                     fill="none"
-                                    stroke="gold"
+                                    stroke={hitColors?.[comp.id] ? 'white' : 'gold'}
                                     strokeWidth="3"
                                     strokeLinecap="round"
-                                    style={{ opacity: 0.8 }}
+                                    style={{ opacity: hitColors?.[comp.id] ? 0.3 : 0.8 }}
                                 />
                                 {/* Power Readout - conditional */}
                                 {(comp.params?.showReadout ?? true) && (
@@ -601,12 +650,62 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                 {/* Readout Overlay (shows polarization) */}
                                 {(comp.params?.showReadout ?? true) && (
                                     <g transform={`rotate(${-comp.rotation}) translate(30, 0)`}>
-                                        <rect x="-10" y="-32" width="110" height="64" rx="8" fill="rgba(0,0,0,0.85)" stroke="#68f" />
-                                        <text x="44" y="-8" fill="#8cf" fontSize="16" textAnchor="middle" fontFamily="monospace">
-                                            I: {(hits[comp.id] || 0).toFixed(2)}
+                                        <rect x="-10" y="-50" width="100" height="100" rx="8" fill="rgba(20, 20, 26, 0.9)" stroke="#68f" strokeWidth="1" />
+
+                                        {/* Visualization Area */}
+                                        <g transform="translate(40, 0)">
+                                            {/* Axis */}
+                                            <line x1="-30" y1="0" x2="30" y2="0" stroke="#444" strokeWidth="1" />
+                                            <line x1="0" y1="-30" x2="0" y2="30" stroke="#444" strokeWidth="1" />
+
+                                            {(() => {
+                                                const intensity = hits[comp.id] || 0;
+                                                const angle = hits[comp.id + '_pol'] ?? 0; // Orientation
+                                                const ellipticity = hits[comp.id + '_ellipticity'] ?? 0; // -45 to 45 (0=Linear, 45=Circ)
+
+                                                if (intensity < 0.05) return <text x="0" y="5" fill="#555" fontSize="10" textAnchor="middle">No Signal</text>;
+
+                                                // Draw Ellipse
+                                                // Convert ellipticity to minor/major axis ratio
+                                                // eta = tan(chi). minor/major = tan(chi)
+                                                // For chi=0, ratio=0 (Line). For chi=45, ratio=1 (Circle)
+
+                                                const chiRad = (ellipticity * Math.PI) / 180;
+                                                const angleRad = (-angle * Math.PI) / 180; // SVG Y is down, so negate angle for visual
+
+                                                // Parametric equation for general ellipse with orientation `angle` and ellipticity `chi`
+                                                // x(t) = A (cos t cos theta - sin t sin theta sin chi) ?? 
+                                                // Easier: Draw ellipse aligned to axes then rotate.
+
+                                                const size = 25;
+                                                const minor = size * Math.tan(Math.abs(chiRad)); // b = a * tan(chi) ??
+                                                // Actually: tan(chi) = b/a. So b = a * tan(chi). 
+                                                // If chi=45, tan=1 -> b=a. If chi=0 -> b=0.
+
+                                                // Limit minor axis
+                                                const b = Math.min(size, Math.abs(size * Math.tan(chiRad)));
+                                                const a = size;
+
+                                                // Rotation transform
+                                                return (
+                                                    <g transform={`rotate(${angle})`}>
+                                                        <ellipse cx="0" cy="0" rx={a} ry={b} fill="none" stroke="#ff0055" strokeWidth="2" />
+                                                        {/* Arrow for direction? Complexity high. */}
+                                                        {/* Draw line for linear part if elliptical */}
+                                                        {b < 5 && (
+                                                            <line x1={-a} y1={0} x2={a} y2={0} stroke="#ff0055" strokeWidth="2" markerEnd="url(#arrow)" />
+                                                        )}
+                                                        {/* Circular arrow if circular? */}
+                                                    </g>
+                                                );
+                                            })()}
+                                        </g>
+
+                                        <text x="40" y="36" fill="#8cf" fontSize="12" textAnchor="middle" fontFamily="monospace">
+                                            {(hits[comp.id] || 0).toFixed(1)}mW
                                         </text>
-                                        <text x="44" y="16" fill="#fc8" fontSize="16" textAnchor="middle" fontFamily="monospace">
-                                            θ: {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°
+                                        <text x="40" y="-38" fill="#fc8" fontSize="12" textAnchor="middle" fontFamily="monospace">
+                                            {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°
                                         </text>
                                     </g>
                                 )}

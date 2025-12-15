@@ -1,8 +1,11 @@
-import { OpticalComponent, Ray, Vector2D } from './types';
+import { OpticalComponent, Ray, Vector2D, Complex, JonesVector } from './types';
 
+
+// Distance the ray travels if it hits nothing
 // Distance the ray travels if it hits nothing
 const MAX_RAY_LENGTH = 2000;
 const MAX_BOUNCES = 20;
+const MAX_TOTAL_RAYS = 2000; // Hard cap to prevent freezing
 const MIN_INTENSITY = 0.01;
 const EPSILON = 0.001;
 const REFRACTIVE_INDEX_AIR = 1.0;
@@ -31,6 +34,89 @@ const rotatePoint = (point: Vector2D, center: Vector2D, angleDeg: number): Vecto
         y: center.y + dx * sin + dy * cos
     };
 };
+
+// --- Complex & Jones Math (Inline to avoid extra files/imports for now) ---
+const cAdd = (c1: Complex, c2: Complex): Complex => ({ re: c1.re + c2.re, im: c1.im + c2.im });
+const cSub = (c1: Complex, c2: Complex): Complex => ({ re: c1.re - c2.re, im: c1.im - c2.im });
+const cMul = (c1: Complex, c2: Complex): Complex => ({ re: c1.re * c2.re - c1.im * c2.im, im: c1.re * c2.im + c1.im * c2.re });
+const cMulScalar = (c: Complex, s: number): Complex => ({ re: c.re * s, im: c.im * s });
+const cAbs = (c: Complex): number => Math.sqrt(c.re * c.re + c.im * c.im);
+const cExp = (theta: number): Complex => ({ re: Math.cos(theta), im: Math.sin(theta) });
+
+const getLinearPolarization = (angleDeg: number): JonesVector => {
+    const rad = (angleDeg * Math.PI) / 180;
+    return {
+        ex: { re: Math.cos(rad), im: 0 },
+        ey: { re: Math.sin(rad), im: 0 }
+    };
+};
+
+const rotateJonesVector = (jv: JonesVector, angleDeg: number): JonesVector => {
+    const rad = (angleDeg * Math.PI) / 180;
+    const cosNode = { re: Math.cos(rad), im: 0 };
+    const sinNode = { re: Math.sin(rad), im: 0 };
+    const ex_cos = cMul(jv.ex, cosNode);
+    const ey_sin = cMul(jv.ey, sinNode);
+    const newEx = cAdd(ex_cos, ey_sin);
+    const minus_sin = { re: -Math.sin(rad), im: 0 };
+    const ex_msin = cMul(jv.ex, minus_sin);
+    const ey_cos = cMul(jv.ey, cosNode);
+    const newEy = cAdd(ex_msin, ey_cos);
+    return { ex: newEx, ey: newEy };
+};
+
+const applyWaveplate = (jv: JonesVector, fastAxisDeg: number, retardanceRad: number): JonesVector => {
+    const rotatedInput = rotateJonesVector(jv, -fastAxisDeg);
+    const phaseShift = cExp(-retardanceRad);
+    const newEx = rotatedInput.ex;
+    const newEy = cMul(rotatedInput.ey, phaseShift);
+    const processedRotated = { ex: newEx, ey: newEy };
+    return rotateJonesVector(processedRotated, fastAxisDeg);
+};
+
+const applyPolarizer = (jv: JonesVector, axisDeg: number): JonesVector => {
+    const rotatedInput = rotateJonesVector(jv, -axisDeg);
+    const newEx = rotatedInput.ex;
+    const newEy = { re: 0, im: 0 };
+    const processedRotated = { ex: newEx, ey: newEy };
+    return rotateJonesVector(processedRotated, axisDeg);
+};
+
+const getIntensity = (jv: JonesVector): number => {
+    return (cAbs(jv.ex) ** 2) + (cAbs(jv.ey) ** 2);
+};
+
+const getStokes = (jv: JonesVector) => {
+    const ax = cAbs(jv.ex);
+    const ay = cAbs(jv.ey);
+    const s0 = ax * ax + ay * ay;
+    const s1 = ax * ax - ay * ay;
+
+    // S2 = 2 Re(Ex Ey*)
+    // S3 = 2 Im(Ex Ey*)
+    const ex = jv.ex;
+    const ey = jv.ey;
+    // Ey*
+    const eyConj = { re: ey.re, im: -ey.im };
+    const prod = cMul(ex, eyConj);
+    const s2 = 2 * prod.re;
+    const s3 = 2 * prod.im;
+
+    return { s0, s1, s2, s3 };
+    return { s0, s1, s2, s3 };
+};
+
+const normalizeJones = (jv: JonesVector): JonesVector => {
+    const m = Math.sqrt(getIntensity(jv));
+    if (m < 1e-9) return { ex: { re: 0, im: 0 }, ey: { re: 0, im: 0 } };
+    const s = 1.0 / m;
+    return {
+        ex: cMulScalar(jv.ex, s),
+        ey: cMulScalar(jv.ey, s)
+    };
+};
+
+
 
 // --- Shape Definitions ---
 
@@ -301,13 +387,14 @@ interface PendingRay {
     intensity: number;
     color: string;
     bounces: number;
-    polarization?: number; // Polarization angle in degrees
+    polarization: JonesVector; // Jones Vector
 }
 
 interface TraceResult {
     visualRay: Ray;
     nextRays: PendingRay[];
     hits: Record<string, number>; // Map component ID to intensity hit
+    hitColors: Record<string, string>; // Map component ID to light color
 }
 
 interface HitRecord {
@@ -319,17 +406,30 @@ interface HitRecord {
 }
 
 // --- Single Ray Trace Function ---
-const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): TraceResult => {
+const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { visualRay: Ray, nextRays: PendingRay[], hits: Record<string, number>, hitColors: Record<string, string> } => {
     let currentOrigin = pending.origin;
     let currentDir = pending.dir;
+    let currentIntensity = pending.intensity;
+    let currentPol = pending.polarization; // Jones Vector
     let path = [currentOrigin];
     let currentRefractiveIndex = REFRACTIVE_INDEX_AIR;
     let nextRays: PendingRay[] = [];
     let hits: Record<string, number> = {};
+    let hitColors: Record<string, string> = {};
 
     let loopLimit = MAX_BOUNCES;
 
     while (loopLimit > 0) {
+        // Safety: Check for NaNs
+        if (isNaN(currentOrigin.x) || isNaN(currentOrigin.y) || isNaN(currentDir.x) || isNaN(currentDir.y)) {
+            console.warn('Raytracer: NaN detected, aborting ray.');
+            break;
+        }
+
+        let roundedOrigin = {
+            x: Math.round(currentOrigin.x * 100) / 100,
+            y: Math.round(currentOrigin.y * 100) / 100
+        };
         loopLimit--;
         let closestHit: HitRecord | null = null;
         let minT = Infinity;
@@ -521,6 +621,16 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                     closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'poldetector', component: comp };
                 }
             }
+            // Simple Detector (Restore)
+            else if (comp.type === 'detector') {
+                const seg = getDetectorSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+                if (hit && hit.t < minT) {
+                    minT = hit.t;
+                    closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'detector', component: comp };
+                }
+            }
+
 
             // Lens
             else if (comp.type === 'lens') {
@@ -575,9 +685,23 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 currentDir = normalize(R);
                 currentOrigin = add(currentOrigin, mul(currentDir, EPSILON * 2));
             }
+            else if (hit.type === 'poldetector') {
+                const id = hit.component.id;
+                hits[id] = (hits[id] || 0) + currentIntensity; // Use currentIntensity
+
+                // Store Stoke parameters or raw Jones vector for visualization
+                // Store Stoke parameters for aggregation
+                const stokes = getStokes(currentPol);
+                // We accumulate these in the hits map
+                hits[id + '_s1'] = stokes.s1;
+                hits[id + '_s2'] = stokes.s2;
+                hits[id + '_s3'] = stokes.s3;
+
+                break;
+            }
             else if (hit.type === 'detector') {
                 const id = hit.component.id;
-                hits[id] = (hits[id] || 0) + pending.intensity;
+                hits[id] = (hits[id] || 0) + currentIntensity;
                 break;
             }
             else if (hit.type === 'fiber') {
@@ -605,7 +729,11 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
 
                 // Store coupled power
                 if (coupling > 0) {
-                    hits[id] = (hits[id] || 0) + (pending.intensity * coupling);
+                    hits[id] = (hits[id] || 0) + (currentIntensity * coupling); // Use currentIntensity
+                    // Store color if significant power
+                    if (currentIntensity * coupling > MIN_INTENSITY) {
+                        hitColors[id] = pending.color;
+                    }
                 }
                 break;
             }
@@ -619,25 +747,27 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 const dotDN = dot(currentDir, N);
 
                 // Reflected ray
-                if (pending.intensity * reflectivity > MIN_INTENSITY) {
+                if (currentIntensity * reflectivity > MIN_INTENSITY) {
                     const R = sub(currentDir, mul(N, 2 * dotDN));
                     nextRays.push({
                         origin: add(hit.point, mul(normalize(R), EPSILON * 2)),
                         dir: normalize(R),
-                        intensity: pending.intensity * reflectivity,
+                        intensity: currentIntensity * reflectivity,
                         color: pending.color,
-                        bounces: pending.bounces + 1
+                        bounces: pending.bounces + 1,
+                        polarization: currentPol
                     });
                 }
 
                 // Transmitted ray (leakage through mirror)
-                if (pending.intensity * (1 - reflectivity) > MIN_INTENSITY) {
+                if (currentIntensity * (1 - reflectivity) > MIN_INTENSITY) {
                     nextRays.push({
                         origin: add(hit.point, mul(currentDir, EPSILON * 2)),
                         dir: currentDir,
-                        intensity: pending.intensity * (1 - reflectivity),
+                        intensity: currentIntensity * (1 - reflectivity),
                         color: pending.color,
-                        bounces: pending.bounces + 1
+                        bounces: pending.bounces + 1,
+                        polarization: currentPol
                     });
                 }
                 break;
@@ -647,18 +777,19 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 const deviation = hit.component.params?.deviation ?? 5; // Degrees
 
                 // 0th Order (Straight)
-                if (pending.intensity * (1 - efficiency) > MIN_INTENSITY) {
+                if (currentIntensity * (1 - efficiency) > MIN_INTENSITY) {
                     nextRays.push({
                         origin: add(hit.point, mul(currentDir, EPSILON * 5)),
                         dir: currentDir,
-                        intensity: pending.intensity * (1 - efficiency),
+                        intensity: currentIntensity * (1 - efficiency),
                         color: pending.color,
-                        bounces: pending.bounces + 1
+                        bounces: pending.bounces + 1,
+                        polarization: currentPol
                     });
                 }
 
                 // 1st Order (Deflected)
-                if (pending.intensity * efficiency > MIN_INTENSITY) {
+                if (currentIntensity * efficiency > MIN_INTENSITY) {
                     const rad = (deviation * Math.PI) / 180;
                     const cos = Math.cos(rad);
                     const sin = Math.sin(rad);
@@ -669,118 +800,132 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                     nextRays.push({
                         origin: add(hit.point, mul(normalize(newDir), EPSILON * 5)),
                         dir: normalize(newDir),
-                        intensity: pending.intensity * efficiency,
+                        intensity: currentIntensity * efficiency,
                         color: pending.color,
-                        bounces: pending.bounces + 1
+                        bounces: pending.bounces + 1,
+                        polarization: currentPol
                     });
                 }
                 break;
             }
             // Half-Wave Plate: Rotates polarization by 2*(fast axis - polarization)
             else if (hit.type === 'hwp') {
+                // Half-wave plate: Retardance = PI
                 const fastAxis = hit.component.params?.fastAxis ?? 0;
-                const incomingPol = pending.polarization ?? 0;
-                // HWP rotates polarization: output = 2*fastAxis - input
-                const outputPol = ((2 * fastAxis - incomingPol) % 180 + 180) % 180;
+                currentPol = applyWaveplate(currentPol, fastAxis, Math.PI);
 
-                // Pass through with rotated polarization
+                // HWP is lossless (Unit->Unit), but good practice to maintain norm
+                const trans = getIntensity(currentPol);
+                currentIntensity = pending.intensity * trans;
+                currentPol = normalizeJones(currentPol);
+
+                // Transmission (assume perfect)
+                currentOrigin = add(hit.point, mul(currentDir, EPSILON * 2));
+                // currentIntensity = getIntensity(currentPol); // REMOVED
                 nextRays.push({
-                    origin: add(hit.point, mul(currentDir, EPSILON * 2)),
+                    origin: currentOrigin,
                     dir: currentDir,
-                    intensity: pending.intensity,
+                    intensity: currentIntensity,
                     color: pending.color,
                     bounces: pending.bounces + 1,
-                    polarization: outputPol
+                    polarization: currentPol
                 });
                 break;
             }
             // Quarter-Wave Plate: Converts linear to circular (or vice versa)
             // For simulation, we just pass through with a phase shift marker
             else if (hit.type === 'qwp') {
+                // Quarter-wave plate: Retardance = PI/2
                 const fastAxis = hit.component.params?.fastAxis ?? 45;
-                const incomingPol = pending.polarization ?? 0;
-                // QWP: For 45° incident, creates circular. Otherwise elliptical.
-                // Simplified: output polarization shifts by 45° relative to fast axis
-                const outputPol = ((incomingPol + 45) % 180 + 180) % 180;
+                currentPol = applyWaveplate(currentPol, fastAxis, Math.PI / 2);
 
+                const trans = getIntensity(currentPol);
+                currentIntensity = pending.intensity * trans;
+                currentPol = normalizeJones(currentPol);
+
+                currentOrigin = add(hit.point, mul(currentDir, EPSILON * 2));
+                // currentIntensity = getIntensity(currentPol); // REMOVED
                 nextRays.push({
-                    origin: add(hit.point, mul(currentDir, EPSILON * 2)),
+                    origin: currentOrigin,
                     dir: currentDir,
-                    intensity: pending.intensity,
+                    intensity: currentIntensity,
                     color: pending.color,
                     bounces: pending.bounces + 1,
-                    polarization: outputPol
+                    polarization: currentPol
                 });
                 break;
             }
             // Polarizer: Filters by polarization angle using Malus's Law
             else if (hit.type === 'polarizer') {
-                const polAxis = hit.component.params?.polarizerAxis ?? 0;
-                const incomingPol = pending.polarization ?? 0;
+                const axis = hit.component.params?.polarizerAxis ?? 0;
+                currentPol = applyPolarizer(currentPol, axis);
 
-                // Malus's Law: I = I0 * cos²(θ)
-                const angleDiff = (incomingPol - polAxis) * Math.PI / 180;
-                const transmission = Math.pow(Math.cos(angleDiff), 2);
+                // Intensity drops
+                const trans = getIntensity(currentPol);
+                currentIntensity = pending.intensity * trans;
+                // Normalize for propagation
+                currentPol = normalizeJones(currentPol);
 
-                if (pending.intensity * transmission > MIN_INTENSITY) {
+                if (currentIntensity > MIN_INTENSITY) {
+                    currentOrigin = add(hit.point, mul(currentDir, EPSILON * 2));
                     nextRays.push({
-                        origin: add(hit.point, mul(currentDir, EPSILON * 2)),
+                        origin: currentOrigin,
                         dir: currentDir,
-                        intensity: pending.intensity * transmission,
+                        intensity: currentIntensity,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: polAxis // Output is aligned to polarizer axis
+                        polarization: currentPol
                     });
                 }
                 break;
             }
             // Polarizing Beam Splitter: splits by polarization
             else if (hit.type === 'pbs') {
-                const pbsAxis = hit.component.params?.pbsAxis ?? 0;
-                const incomingPol = pending.polarization ?? 0;
-                const N = hit.normal;
-                const dotDN = dot(currentDir, N);
+                const id = hit.component.id;
+                hits[id] = (hits[id] || 0) + pending.intensity;
 
-                // Calculate transmission (p-pol) and reflection (s-pol) based on angle
-                const angleDiff = (incomingPol - pbsAxis) * Math.PI / 180;
-                const pPolFraction = Math.pow(Math.cos(angleDiff), 2); // Transmitted
-                const sPolFraction = Math.pow(Math.sin(angleDiff), 2); // Reflected
+                // PBS Axis (Transmission Axis). Default 0 (Horizontal)
+                // Note: In real PBS, this is tied to the physical geometry, but here we allow parametric control
+                const axis = hit.component.params?.pbsAxis ?? 0;
 
-                // Transmitted ray (p-polarization component)
-                if (pending.intensity * pPolFraction > MIN_INTENSITY) {
+                // 1. Transmitted Ray (Parallel to axis) (T)
+                let transPol = applyPolarizer(currentPol, axis);
+                const transFactor = getIntensity(transPol);
+                const transInt = pending.intensity * transFactor;
+
+                if (transInt > MIN_INTENSITY) {
+                    transPol = normalizeJones(transPol);
                     nextRays.push({
                         origin: add(hit.point, mul(currentDir, EPSILON * 2)),
                         dir: currentDir,
-                        intensity: pending.intensity * pPolFraction,
+                        intensity: transInt,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: pbsAxis // Transmitted is aligned to PBS axis
+                        polarization: transPol
                     });
                 }
 
-                // Reflected ray (s-polarization component)
-                if (pending.intensity * sPolFraction > MIN_INTENSITY) {
-                    const R = sub(currentDir, mul(N, 2 * dotDN));
+                // 2. Reflected Ray (Perpendicular to axis) (R)
+                let reflPol = applyPolarizer(currentPol, axis + 90);
+                const reflFactor = getIntensity(reflPol);
+                const reflInt = pending.intensity * reflFactor;
+
+                if (reflInt > MIN_INTENSITY) {
+                    const N = hit.normal;
+                    const dotDN = dot(currentDir, N);
+                    const R_dir = normalize(sub(currentDir, mul(N, 2 * dotDN)));
+                    reflPol = normalizeJones(reflPol);
+
                     nextRays.push({
-                        origin: add(hit.point, mul(normalize(R), EPSILON * 2)),
-                        dir: normalize(R),
-                        intensity: pending.intensity * sPolFraction,
+                        origin: add(hit.point, mul(R_dir, EPSILON * 2)),
+                        dir: R_dir,
+                        intensity: reflInt,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: (pbsAxis + 90) % 180 // Reflected is perpendicular to PBS axis
+                        polarization: reflPol
                     });
                 }
-                break;
-            }
-            // Polarization Detector: absorbs and records polarization
-            else if (hit.type === 'poldetector') {
-                const id = hit.component.id;
-                // Store both intensity and polarization (encode polarization in decimal part)
-                const polAngle = pending.polarization ?? 0;
-                // Store as: integer part = intensity * 100, decimal = polarization / 1000
-                hits[id] = (hits[id] || 0) + pending.intensity;
-                // Store polarization separately using a special key
-                hits[id + '_pol'] = polAngle;
+
                 break;
             }
             else if (hit.type === 'lens') {
@@ -826,7 +971,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                         dir: R_dir,
                         intensity: pending.intensity * (1 - ratio),
                         color: pending.color,
-                        bounces: pending.bounces + 1
+                        bounces: pending.bounces + 1,
+                        polarization: currentPol
                     });
                 }
 
@@ -838,7 +984,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                         dir: T_dir,
                         intensity: pending.intensity * ratio,
                         color: pending.color,
-                        bounces: pending.bounces + 1
+                        bounces: pending.bounces + 1,
+                        polarization: currentPol
                     });
                 }
                 break;
@@ -856,16 +1003,19 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
             direction: pending.dir,
             intensity: pending.intensity,
             color: pending.color,
-            path: path
+            path: path,
+            polarization: pending.polarization
         },
         nextRays,
-        hits
+        hits,
+        hitColors
     };
 };
 
-export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hits: Record<string, number> } => {
+export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hits: Record<string, number>, hitColors: Record<string, string> } => {
     const finalRays: Ray[] = [];
     const totalHits: Record<string, number> = {};
+    const totalHitColors: Record<string, string> = {}; // Initialize hitColors
     const queue: PendingRay[] = [];
 
     const lasers = components.filter(c => c.type === 'laser');
@@ -882,7 +1032,12 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         const baseColor = laser.params?.color || '#ff0000';
         const brightness = laser.params?.brightness ?? 1; // Default 1.0
         const glow = laser.params?.glow ?? 0.4;           // Default 0.4
-        const polarization = laser.params?.polarization ?? 0; // Default horizontal
+        const polarizationAngle = laser.params?.polarization ?? 0;
+        const localPol = getLinearPolarization(polarizationAngle);
+        // rotateJonesVector implements coordinate rotation (-theta). 
+        // To rotate vector by +laser.rotation, we pass -laser.rotation.
+        const polarization = rotateJonesVector(localPol, -laser.rotation);
+
 
         const perp = { x: -dir.y, y: dir.x };
         const offset = 2.5;
@@ -916,6 +1071,12 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
 
     // Process Queue
     while (queue.length > 0) {
+        // Safety break
+        if (finalRays.length >= MAX_TOTAL_RAYS) {
+            console.warn('Ray limit reached!');
+            break;
+        }
+
         const current = queue.shift();
         if (!current) continue;
 
@@ -927,6 +1088,11 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
             totalHits[id] = (totalHits[id] || 0) + val;
         });
 
+        // Aggregate colors (last one wins for now)
+        Object.entries(result.hitColors).forEach(([id, color]) => {
+            totalHitColors[id] = color;
+        });
+
         result.nextRays.forEach(child => {
             if (child.bounces < MAX_BOUNCES) {
                 queue.push(child);
@@ -934,5 +1100,29 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         });
     }
 
-    return { rays: finalRays, hits: totalHits };
+    // Post-process Stokes parameters for polarization detectors
+    const detectors = components.filter(c => c.type === 'poldetector');
+    detectors.forEach(det => {
+        const id = det.id;
+        const s0 = totalHits[id] || 0; // S0 is intensity (summed)
+        const s1 = totalHits[id + '_s1'] || 0;
+        const s2 = totalHits[id + '_s2'] || 0;
+        const s3 = totalHits[id + '_s3'] || 0;
+
+        if (s0 > 0) {
+            // Angle psi = 0.5 * atan2(S2, S1)
+            const psiRad = 0.5 * Math.atan2(s2, s1);
+            const psiDeg = (psiRad * 180) / Math.PI;
+            const angle = ((psiDeg % 180) + 180) % 180; // Strictly 0-180
+            totalHits[id + '_pol'] = angle;
+
+            // Ellipticity chi = 0.5 * asin(S3 / S0)
+            const ratio = Math.max(-1, Math.min(1, s3 / s0)); // Clamp
+            const chiRad = 0.5 * Math.asin(ratio);
+            const chiDeg = (chiRad * 180) / Math.PI;
+            totalHits[id + '_ellipticity'] = chiDeg;
+        }
+    });
+
+    return { rays: finalRays, hits: totalHits, hitColors: totalHitColors };
 };

@@ -3,6 +3,16 @@ export type Vector2D = {
     y: number;
 };
 
+export type Complex = {
+    re: number;
+    im: number;
+};
+
+export type JonesVector = {
+    ex: Complex;
+    ey: Complex;
+};
+
 export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris' | 'cavity' | 'text' | 'hwp' | 'qwp' | 'polarizer' | 'pbs' | 'poldetector';
 
 export interface OpticalComponent {
@@ -48,6 +58,6 @@ export interface Ray {
     intensity: number;
     color: string;
     path: Vector2D[]; // Points along the ray path
-    polarization?: number; // Polarization angle in degrees (0=H, 90=V, undefined=unpolarized)
+    polarization: JonesVector; // Jones Vector for full state
 }
 

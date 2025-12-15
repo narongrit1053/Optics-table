@@ -311,4 +311,40 @@ describe('Raytracer Engine', () => {
         expect(path2[path2.length - 1].x).toBeCloseTo(100, 0);
     });
 
+
+    it('should rotate polarization with laser body', () => {
+        const components: OpticalComponent[] = [
+            {
+                id: 'laser1',
+                type: 'laser',
+                position: { x: 0, y: 0 },
+                rotation: 30, // Rotated 30 deg
+                params: { power: 1, polarization: 0 } // Horizontal relative to body
+            },
+            {
+                id: 'det1',
+                type: 'poldetector',
+                position: { x: 100, y: 50 }, // Positioned to catch ray (approx direction)
+                // Actually ray goes at 30 deg. (0,0) -> (cos30*L, sin30*L)
+                // Let's use a large detector or exact position
+                rotation: 0,
+                params: {}
+            }
+        ];
+
+        // Use a wide detector or exact calculation
+        // Ray dir: (0.866, 0.5)
+        // At 200 units: (173, 100).
+        components[1].position = { x: 173.2, y: 100 };
+        components[1].rotation = 30; // Face the laser
+
+        const { hits } = calculateRays(components);
+
+        // Polarization should be 30 deg relative to global H
+        const angle = hits['det1_pol'];
+
+        expect(angle).toBeDefined();
+        expect(angle).toBeCloseTo(30, 0);
+    });
+
 });
