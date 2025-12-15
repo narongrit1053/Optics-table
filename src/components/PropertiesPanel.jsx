@@ -44,7 +44,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                     </button>
                 </div>
                 <div className="overlay-content">
-                    <div style={{ color: '#555', fontStyle: 'italic' }}>Select a component</div>
+                    <div style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Select a component</div>
                 </div>
                 {collapsed && (
                     <div className="collapsed-label" onClick={() => setCollapsed(false)} style={{ cursor: 'pointer' }}>PROPS</div>
@@ -72,7 +72,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px' }}>
                         <button
                             onClick={() => updateRotation((selectedComp.rotation - 45 + 360) % 360)}
-                            style={{ background: 'transparent', border: '1px solid #555', color: '#fff', borderRadius: '4px', width: '30px', cursor: 'pointer' }}
+                            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: '4px', width: '30px', cursor: 'pointer' }}
                         >
                             ↺
                         </button>
@@ -84,7 +84,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             style={{
                                 background: 'transparent',
                                 border: 'none',
-                                color: '#fff',
+                                color: 'var(--text-main)',
                                 width: '50px',
                                 textAlign: 'center',
                                 fontWeight: 'bold'
@@ -92,7 +92,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                         />
                         <button
                             onClick={() => updateRotation((selectedComp.rotation + 45) % 360)}
-                            style={{ background: 'transparent', border: '1px solid #555', color: '#fff', borderRadius: '4px', width: '30px', cursor: 'pointer' }}
+                            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: '4px', width: '30px', cursor: 'pointer' }}
                         >
                             ↻
                         </button>
@@ -108,7 +108,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             value={selectedComp.params?.label || ''}
                             onChange={(e) => updateParam('label', e.target.value)}
                             placeholder="Optional text..."
-                            style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #555', background: '#222', color: '#fff' }}
+                            style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)' }}
                         />
 
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Power (Brightness)</label>
@@ -424,7 +424,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             value={selectedComp.params?.content || ''}
                             onChange={(e) => updateParam('content', e.target.value)}
                             placeholder="Enter text..."
-                            style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #555', background: '#222', color: '#fff' }}
+                            style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)' }}
                         />
 
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '12px' }}>Font Size</label>
@@ -466,9 +466,9 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             onChange={(e) => updateParam('lensShape', e.target.value)}
                             style={{
                                 width: '100%',
-                                background: '#222',
-                                color: '#fff',
-                                border: '1px solid #555',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                border: '1px solid var(--border)',
                                 padding: '4px',
                                 borderRadius: '4px',
                                 marginBottom: '10px'

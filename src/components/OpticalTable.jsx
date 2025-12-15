@@ -206,11 +206,11 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
             >
                 <defs>
                     <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--grid-color)" strokeWidth="1" />
                     </pattern>
                     <pattern id="grid-large" width="100" height="100" patternUnits="userSpaceOnUse">
                         <rect width="100" height="100" fill="url(#grid)" />
-                        <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+                        <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--grid-color-large)" strokeWidth="2" />
                     </pattern>
                     {/* Laser Glow Filter - Tighter glow to prevent disappearing lines */}
                     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -424,7 +424,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                 {/* Power Readout - conditional */}
                                 {(comp.params?.showReadout ?? true) && (
                                     <g transform={`rotate(${-comp.rotation}) translate(15, -25)`}>
-                                        <text x="0" y="0" fill="#aaa" fontSize="10" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                                        <text x="0" y="0" fill="var(--text-dim)" fontSize="10" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
                                             {(hits[comp.id] || 0).toFixed(2)}
                                         </text>
                                     </g>
@@ -502,7 +502,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                 <text
                                     x="0"
                                     y="0"
-                                    fill={comp.params?.textColor || '#ffffff'}
+                                    fill={comp.params?.textColor && comp.params.textColor !== '#ffffff' ? comp.params.textColor : 'var(--text-main)'}
                                     fontSize={comp.params?.fontSize || 16}
                                     textAnchor="middle"
                                     dominantBaseline="middle"

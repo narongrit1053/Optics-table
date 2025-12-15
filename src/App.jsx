@@ -13,6 +13,22 @@ function App() {
     future: []
   });
 
+  // Theme State
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
   const [selectedCompId, setSelectedCompId] = useState(null);
   const [clipboard, setClipboard] = useState(null);
 
@@ -201,6 +217,8 @@ function App() {
       {/* Overlays - On top */}
       <Sidebar
         setComponents={(fn) => setComponentsAdapter(fn, true)}
+        toggleTheme={toggleTheme}
+        theme={theme}
       />
       <PropertiesPanel
         selectedCompId={selectedCompId}

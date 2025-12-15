@@ -19,7 +19,7 @@ const tools = [
     { id: 'text', label: 'Text Label', icon: '📝', params: { content: 'Label', fontSize: 16, textColor: '#ffffff' } }
 ];
 
-const Sidebar = ({ setComponents }) => {
+const Sidebar = ({ setComponents, toggleTheme, theme }) => {
     const [collapsed, setCollapsed] = useState(false);
 
     const addComponent = (type) => {
@@ -47,6 +47,14 @@ const Sidebar = ({ setComponents }) => {
         <div className={`overlay-panel sidebar-overlay ${collapsed ? 'collapsed' : ''}`}>
             <div className="panel-header">
                 <span className="panel-title header" style={{ margin: 0 }}>Components</span>
+                <button
+                    className="collapse-btn"
+                    onClick={toggleTheme}
+                    title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+                    style={{ marginRight: '8px' }}
+                >
+                    {theme === 'light' ? '🌙' : '☀️'}
+                </button>
                 <button
                     className="collapse-btn"
                     onClick={() => setCollapsed(!collapsed)}

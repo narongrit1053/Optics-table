@@ -2,7 +2,7 @@
   position: relative;
   width: 100vw;
   height: 100vh;
-  background: var(--bg-dark);
+  background: var(--bg-main);
   overflow: hidden;
 }
 
@@ -16,7 +16,7 @@
 }
 
 .main-stage {
-  background: radial-gradient(circle at center, #111118 0%, #0a0a0f 100%);
+  background: radial-gradient(circle at center, var(--bg-panel) 0%, var(--bg-main) 100%);
   overflow: hidden;
 }
 
@@ -24,9 +24,9 @@
 .overlay-panel {
   position: absolute;
   z-index: 10;
-  background: rgba(20, 20, 26, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-panel);
+  /* backdrop-filter: blur(12px); Removed blur as it might look odd on white if not handled carefully, or keep it */
+  border: 1px solid var(--border);
 
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -71,7 +71,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--header-bg);
   min-height: 60px;
 }
 
@@ -99,6 +100,50 @@
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  color: var(--text-main);
+  /* Ensure default text is visible */
+}
+
+/* Explicit text visibility for labels and headers */
+.overlay-content label {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.overlay-content .header,
+.panel-header .header {
+  color: var(--text-main);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Input placeholder visibility */
+input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+.component-item {
+  display: flex;
+  align-items: center;
+  padding: 0.8rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  cursor: grab;
+  color: var(--text-dim);
+  background: transparent;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.component-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  border-color: var(--border);
+}
+
+.component-item:active {
+  cursor: grabbing;
 }
 
 .collapsed .overlay-content,

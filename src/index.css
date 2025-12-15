@@ -1,22 +1,48 @@
 :root {
-  --bg-dark: #0a0a0f;
+  /* Light Mode (Default) */
+  --bg-main: #f4f4f6;
+  /* Softer off-white */
+  --bg-panel: #fcfcfd;
+  --primary: #00bf7d;
+  /* Slightly darker green for light mode contrast */
+  --secondary: #009ecd;
+  --accent: #d9004c;
+  --text-main: #1a1a20;
+  --text-dim: #666670;
+  --border: #dee2e6;
+  --glow-primary: 0 0 10px rgba(0, 191, 125, 0.4);
+  --glow-laser: 0 0 15px rgba(217, 0, 76, 0.6);
+  --header-bg: #f1f3f5;
+  --grid-color: rgba(0, 0, 0, 0.1);
+  --grid-color-large: rgba(0, 0, 0, 0.2);
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: var(--text-main);
+  background-color: var(--bg-main);
+}
+
+body.dark-mode {
+  /* Dark Mode (Original) */
+  --bg-main: #0a0a0f;
   --bg-panel: #14141a;
   --primary: #00ff9d;
   --secondary: #00b8ff;
   --accent: #ff0055;
-  --text-main: #e0e0e0;
-  --text-dim: #888899;
+  --text-main: #ffffff;
+  --text-dim: #bbbbcc;
   --border: #2a2a35;
   --glow-primary: 0 0 10px rgba(0, 255, 157, 0.5);
   --glow-laser: 0 0 15px rgba(255, 0, 85, 0.8);
-  
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  
+  --header-bg: rgba(255, 255, 255, 0.05);
+  /* kept relative to dark */
+  --grid-color: rgba(255, 255, 255, 0.08);
+  --grid-color-large: rgba(255, 255, 255, 0.15);
+
   color-scheme: dark;
-  color: var(--text-main);
-  background-color: var(--bg-dark);
 }
 
 * {
