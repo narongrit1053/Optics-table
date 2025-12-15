@@ -623,7 +623,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'pbs' && (
                             <g>
                                 {/* Cube body */}
-                                <rect x="-30" y="-30" width="60" height="60" fill="#445" stroke="#889" strokeWidth="2" />
+                                <rect x="-30" y="-30" width="60" height="60" fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="2" />
                                 {/* Diagonal coating (polarizing surface) */}
                                 <line x1="-30" y1="30" x2="30" y2="-30" stroke="#8af" strokeWidth="4" />
                                 {/* PBS label */}
