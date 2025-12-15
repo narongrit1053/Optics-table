@@ -36,7 +36,7 @@ const rotatePoint = (point: Vector2D, center: Vector2D, angleDeg: number): Vecto
 
 // Mirror: Line Segment
 const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 50;
+    const width = 100;
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -52,7 +52,7 @@ const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2
 
 // Detector
 const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 40;
+    const width = 80;
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -66,9 +66,9 @@ const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D
     return { p1, p2, normal };
 };
 
-// Iris - dedicated segment with width matching visual (diameter 32 = 2 * radius 16)
+// Iris - dedicated segment with width matching visual (diameter 64 = 2 * radius 32)
 const getIrisSegment = (iris: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 32; // Match visual circle radius 16 * 2
+    const width = 64; // Match visual circle radius 32 * 2
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -84,11 +84,11 @@ const getIrisSegment = (iris: OpticalComponent): { p1: Vector2D, p2: Vector2D, n
 
 // Fiber Coupler - segment for the coupling lens/aperture
 const getFiberSegment = (fiber: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 30; // Match visual coupler body height
+    const width = 60; // Match visual coupler body height
     const halfWidth = width / 2;
-    // Fiber lens is at x=-8 in local coordinates (front of coupler)
-    const p1Local = { x: -8, y: -halfWidth };
-    const p2Local = { x: -8, y: halfWidth };
+    // Fiber lens is at x=-16 in local coordinates (front of coupler)
+    const p1Local = { x: -16, y: -halfWidth };
+    const p2Local = { x: -16, y: halfWidth };
 
     const p1 = rotatePoint({ x: fiber.position.x + p1Local.x, y: fiber.position.y + p1Local.y }, fiber.position, fiber.rotation);
     const p2 = rotatePoint({ x: fiber.position.x + p2Local.x, y: fiber.position.y + p2Local.y }, fiber.position, fiber.rotation);
@@ -103,7 +103,7 @@ const getFiberSegment = (fiber: OpticalComponent): { p1: Vector2D, p2: Vector2D,
 
 // AOM: Rectangular Crystal (Interaction Line)
 const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 40;
+    const width = 80;
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -119,7 +119,7 @@ const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, nor
 
 // Optical Cavity - two parallel mirrors
 const getCavitySegments = (cavity: OpticalComponent): { left: { p1: Vector2D, p2: Vector2D, normal: Vector2D }, right: { p1: Vector2D, p2: Vector2D, normal: Vector2D } } => {
-    const height = 40; // Mirror height
+    const height = 80; // Mirror height
     const halfHeight = height / 2;
     const length = cavity.params?.cavityLength ?? 100;
     const halfLength = length / 2;
@@ -149,7 +149,7 @@ const getCavitySegments = (cavity: OpticalComponent): { left: { p1: Vector2D, p2
 
 // Waveplate/Polarizer segment (HWP, QWP, Polarizer)
 const getWaveplateSegment = (wp: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 30; // Waveplate width
+    const width = 60; // Waveplate width
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -165,7 +165,7 @@ const getWaveplateSegment = (wp: OpticalComponent): { p1: Vector2D, p2: Vector2D
 
 // Beam Splitter: Diagonal Line Segment
 const getBeamSplitterSegment = (bs: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const size = 30;
+    const size = 60;
     const half = size / 2;
     const p1Local = { x: -half, y: half };
     const p2Local = { x: half, y: -half };
@@ -225,8 +225,8 @@ const getLensBoundaries = (lens: OpticalComponent): Surface[] => {
         // Flat (Left at -T/2). 
         surfaces.push({
             type: 'line',
-            p1: transform({ x: -T / 2, y: -40 }),
-            p2: transform({ x: -T / 2, y: 40 })
+            p1: transform({ x: -T / 2, y: -80 }),
+            p2: transform({ x: -T / 2, y: 80 })
         });
         // Convex (Right). Center at (-R + T/2).
         surfaces.push({ type: 'circle', center: transform({ x: -R + T / 2, y: 0 }), radius: R, normalFlip: 1 });
@@ -234,8 +234,8 @@ const getLensBoundaries = (lens: OpticalComponent): Surface[] => {
         // Left: Flat. Right: Concave.
         surfaces.push({
             type: 'line',
-            p1: transform({ x: -T / 2, y: -40 }),
-            p2: transform({ x: -T / 2, y: 40 })
+            p1: transform({ x: -T / 2, y: -80 }),
+            p2: transform({ x: -T / 2, y: 80 })
         });
         // Concave (Right). Center at Right (+R + T/2). Flip -1.
         surfaces.push({ type: 'circle', center: transform({ x: R + T / 2, y: 0 }), radius: R, normalFlip: -1 });
@@ -400,9 +400,15 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                     if (cosIncident > 0) {
                         // Front hit - check core aperture first (spatial filtering)
                         const coreRadius = (comp.params?.coreSize ?? 12) / 2;
-                        const distFromCenter = mag(sub(hit.point, comp.position));
 
-                        if (distFromCenter > coreRadius) {
+                        // Calculate face center (midpoint of p1 and p2)
+                        const faceCenter = {
+                            x: (seg.p1.x + seg.p2.x) / 2,
+                            y: (seg.p1.y + seg.p2.y) / 2
+                        };
+                        const distFromFaceCenter = mag(sub(hit.point, faceCenter));
+
+                        if (distFromFaceCenter > coreRadius) {
                             // Hit outside core - blocked by cladding/housing
                             minT = hit.t;
                             closestHit = { t: hit.t, point: hit.point, normal: N, type: 'blocker', component: comp };
@@ -425,8 +431,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                 const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
 
                 if (hit && hit.t < minT) {
-                    // Check Aperture - cap at max visual size (32)
-                    const aperture = Math.min(comp.params?.aperture ?? 20, 32);
+                    // Check Aperture - cap at max visual size (64)
+                    const aperture = Math.min(comp.params?.aperture ?? 40, 64);
                     const dist = mag(sub(hit.point, comp.position));
 
                     if (dist > aperture / 2) {
@@ -547,7 +553,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): Tra
                     if (hit) {
                         const distFromLensCenter = mag(sub(hit.point, comp.position));
                         // Increased bounds for different shapes
-                        if (distFromLensCenter < 45 && hit.t < minT) {
+                        if (distFromLensCenter < 90 && hit.t < minT) {
                             minT = hit.t;
                             closestHit = { t: hit.t, point: hit.point, normal: N, type: 'lens', component: comp };
                         }

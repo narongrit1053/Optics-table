@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateRays } from '../engine/raytracer';
 
-const GRID_SIZE = 20;
+const GRID_SIZE = 40;
 
 const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) => {
     const [viewBox, setViewBox] = useState({ x: -1000, y: -500, w: 2000, h: 1000 });
@@ -205,12 +205,12 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                 style={{ touchAction: 'none' }} // Prevent touch scrolling gestures
             >
                 <defs>
-                    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--grid-color)" strokeWidth="1" />
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--grid-color)" strokeWidth="1" />
                     </pattern>
-                    <pattern id="grid-large" width="100" height="100" patternUnits="userSpaceOnUse">
-                        <rect width="100" height="100" fill="url(#grid)" />
-                        <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--grid-color-large)" strokeWidth="2" />
+                    <pattern id="grid-large" width="200" height="200" patternUnits="userSpaceOnUse">
+                        <rect width="200" height="200" fill="url(#grid)" />
+                        <path d="M 200 0 L 0 0 0 200" fill="none" stroke="var(--grid-color-large)" strokeWidth="2" />
                     </pattern>
                     {/* Laser Glow Filter - Tighter glow to prevent disappearing lines */}
                     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -261,9 +261,9 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'laser' && (
                             <g>
                                 {/* Laser Body */}
-                                <rect x="-20" y="-10" width="40" height="20" rx="2" fill="#333" stroke="#555" strokeWidth="1" />
+                                <rect x="-40" y="-20" width="80" height="40" rx="4" fill="#333" stroke="#555" strokeWidth="2" />
                                 {/* Aperture / Front */}
-                                <rect x="18" y="-4" width="4" height="8" fill={comp.params?.color || 'red'} />
+                                <rect x="36" y="-8" width="8" height="16" fill={comp.params?.color || 'red'} />
                                 {/* Label/Icon */}
                                 {/* Label/Icon */}
                                 {comp.params?.label ? (
@@ -287,49 +287,49 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'mirror' && (
                             <g>
                                 {/* Glass/Reflective Surface */}
-                                <rect x="-2" y="-25" width="4" height="50" fill="#aaccff" fillOpacity="0.4" stroke="#aaccff" strokeWidth="1" />
+                                <rect x="-4" y="-50" width="8" height="100" fill="#aaccff" fillOpacity="0.4" stroke="#aaccff" strokeWidth="2" />
                                 {/* Backing/Silver */}
-                                <line x1="0" y1="-25" x2="0" y2="25" stroke="silver" strokeWidth="2" />
+                                <line x1="0" y1="-50" x2="0" y2="50" stroke="silver" strokeWidth="4" />
                             </g>
                         )}
 
                         {comp.type === 'lens' && (
                             <g>
                                 {/* Hit Area (Transparent) */}
-                                <rect x="-15" y="-30" width="30" height="60" fill="transparent" stroke="none" />
+                                <rect x="-30" y="-60" width="60" height="120" fill="transparent" stroke="none" />
 
 
                                 {/* Lens Glass Body */}
                                 {(!comp.params?.lensShape || comp.params.lensShape === 'convex') && (
                                     <path
-                                        d="M 0 -30 Q 15 0 0 30 Q -15 0 0 -30"
+                                        d="M 0 -60 Q 30 0 0 60 Q -30 0 0 -60"
                                         fill="rgba(100, 200, 255, 0.3)"
                                         stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="1"
+                                        strokeWidth="2"
                                     />
                                 )}
                                 {comp.params?.lensShape === 'concave' && (
                                     <path
-                                        d="M -10 -30 Q 0 0 -10 30 L 10 30 Q 0 0 10 -30 Z"
+                                        d="M -20 -60 Q 0 0 -20 60 L 20 60 Q 0 0 20 -60 Z"
                                         fill="rgba(100, 200, 255, 0.3)"
                                         stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="1"
+                                        strokeWidth="2"
                                     />
                                 )}
                                 {comp.params?.lensShape === 'plano-convex' && (
                                     <path
-                                        d="M -5 -30 L -5 30 Q 15 0 -5 -30"
+                                        d="M -10 -60 L -10 60 Q 30 0 -10 -60"
                                         fill="rgba(100, 200, 255, 0.3)"
                                         stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="1"
+                                        strokeWidth="2"
                                     />
                                 )}
                                 {comp.params?.lensShape === 'plano-concave' && (
                                     <path
-                                        d="M -5 -30 L -5 30 L 10 30 Q 0 0 10 -30 Z"
+                                        d="M -10 -60 L -10 60 L 20 60 Q 0 0 20 -60 Z"
                                         fill="rgba(100, 200, 255, 0.3)"
                                         stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="1"
+                                        strokeWidth="2"
                                     />
                                 )}
                             </g>
@@ -338,37 +338,37 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'beamsplitter' && (
                             <g>
                                 {/* Glass Cube Body */}
-                                <rect x="-15" y="-15" width="30" height="30" fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="1" />
+                                <rect x="-30" y="-30" width="60" height="60" fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="2" />
                                 {/* Diagonal Splitter Surface (Bottom-Left to Top-Right) */}
-                                <line x1="-15" y1="15" x2="15" y2="-15" stroke="silver" strokeWidth="2" strokeDasharray="2,1" />
+                                <line x1="-30" y1="30" x2="30" y2="-30" stroke="silver" strokeWidth="4" strokeDasharray="4,2" />
                             </g>
                         )}
 
                         {comp.type === 'aom' && (
                             <g>
                                 {/* Crystal Body */}
-                                <rect x="-10" y="-20" width="20" height="40" fill="rgba(200, 200, 255, 0.4)" stroke="#88f" strokeWidth="1" />
+                                <rect x="-20" y="-40" width="40" height="80" fill="rgba(200, 200, 255, 0.4)" stroke="#88f" strokeWidth="2" />
                                 {/* Transducer (Piezo) on Top */}
-                                <rect x="-10" y="-26" width="20" height="6" fill="#d4af37" stroke="#b8860b" />
+                                <rect x="-20" y="-52" width="40" height="12" fill="#d4af37" stroke="#b8860b" />
                                 {/* RF Cable / Symbol */}
-                                <path d="M 0 -26 L 0 -35" stroke="#888" strokeWidth="1" />
-                                <circle cx="0" cy="-35" r="2" fill="#888" />
+                                <path d="M 0 -52 L 0 -70" stroke="#888" strokeWidth="2" />
+                                <circle cx="0" cy="-70" r="4" fill="#888" />
                                 {/* Internal Gratings (Decoration) */}
-                                <path d="M -6 -15 L 6 -15 M -6 -5 L 6 -5 M -6 5 L 6 5 M -6 15 L 6 15" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                                <path d="M -12 -30 L 12 -30 M -12 -10 L 12 -10 M -12 10 L 12 10 M -12 30 L 12 30" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
                             </g>
                         )}
 
                         {comp.type === 'detector' && (
                             <g>
                                 {/* Sensor Body */}
-                                <rect x="-5" y="-20" width="10" height="40" fill="#222" stroke="#555" strokeWidth="1" />
+                                <rect x="-10" y="-40" width="20" height="80" fill="#222" stroke="#555" strokeWidth="2" />
                                 {/* Active Area */}
-                                <rect x="-5" y="-18" width="4" height="36" fill="#111" />
+                                <rect x="-10" y="-36" width="8" height="72" fill="#111" />
                                 {/* Readout Overlay (always horizontal) - conditional */}
                                 {(comp.params?.showReadout ?? true) && (
-                                    <g transform={`rotate(${-comp.rotation}) translate(15, 0)`}>
-                                        <rect x="-5" y="-10" width="45" height="20" rx="4" fill="rgba(0,0,0,0.8)" stroke="#555" />
-                                        <text x="17" y="4" fill="#0f0" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                                    <g transform={`rotate(${-comp.rotation}) translate(30, 0)`}>
+                                        <rect x="-10" y="-20" width="90" height="40" rx="8" fill="rgba(0,0,0,0.8)" stroke="#555" />
+                                        <text x="34" y="8" fill="#0f0" fontSize="20" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
                                             {(hits[comp.id] || 0).toFixed(2)}
                                         </text>
                                     </g>
@@ -380,51 +380,51 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {(comp.type === 'iris' || comp.type === 'blocker') && (
                             <g>
                                 {/* Iris Housing (Square/Rect like mount) */}
-                                <rect x="-10" y="-20" width="20" height="40" fill="#222" stroke="#555" strokeWidth="1" />
+                                <rect x="-20" y="-40" width="40" height="80" fill="#222" stroke="#555" strokeWidth="2" />
                                 {/* Aperture Blades visual */}
-                                <circle cx="0" cy="0" r="16" fill="#111" stroke="#333" />
+                                <circle cx="0" cy="0" r="32" fill="#111" stroke="#333" />
                                 {/* The actual opening (Hole) */}
                                 {/* Size depends on aperture param. Max 40 = Radius 20? Let's say max aperture 20 -> radius 10. */}
                                 {/* Param is diameter? If param 20 (default), radius 10. */}
-                                <circle cx="0" cy="0" r={(comp.params?.aperture ?? 20) / 2} fill="#333" stroke="none" />
+                                <circle cx="0" cy="0" r={(comp.params?.aperture ?? 40) / 2} fill="#333" stroke="none" />
                                 {/* Blade lines (Symbolic) */}
-                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(0)" />
-                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(60)" />
-                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(120)" />
-                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(180)" />
-                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(240)" />
-                                <path d="M 0 -16 L 0 -10 M 11 -11 L 7 -7 M 16 0 L 10 0" stroke="#444" transform="rotate(300)" />
+                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(0)" />
+                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(60)" />
+                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(120)" />
+                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(180)" />
+                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(240)" />
+                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(300)" />
                             </g>
                         )}
 
                         {comp.type === 'fiber' && (
                             <g>
                                 {/* Fiber Coupler Body (Collimator) */}
-                                <rect x="-8" y="-15" width="16" height="30" rx="4" fill="#333" stroke="#666" strokeWidth="1" />
+                                <rect x="-16" y="-30" width="32" height="60" rx="8" fill="#333" stroke="#666" strokeWidth="2" />
                                 {/* Lens / Entrance */}
-                                <circle cx="-8" cy="0" r="6" fill="#555" stroke="#888" strokeWidth="1" />
+                                <circle cx="-16" cy="0" r="12" fill="#555" stroke="#888" strokeWidth="2" />
                                 {/* Fiber Boot */}
-                                <rect x="8" y="-4" width="6" height="8" fill="#222" />
+                                <rect x="16" y="-8" width="12" height="16" fill="#222" />
                                 {/* Fiber Cable (Yellow, curved) */}
                                 <path
-                                    d="M 14 0 Q 30 0, 30 20 T 50 30"
+                                    d="M 28 0 Q 60 0, 60 40 T 100 60"
                                     fill="none"
                                     stroke="orange"
-                                    strokeWidth="3"
+                                    strokeWidth="6"
                                     strokeLinecap="round"
                                 />
                                 <path
-                                    d="M 14 0 Q 30 0, 30 20 T 50 30"
+                                    d="M 28 0 Q 60 0, 60 40 T 100 60"
                                     fill="none"
                                     stroke="gold"
-                                    strokeWidth="1.5"
+                                    strokeWidth="3"
                                     strokeLinecap="round"
                                     style={{ opacity: 0.8 }}
                                 />
                                 {/* Power Readout - conditional */}
                                 {(comp.params?.showReadout ?? true) && (
-                                    <g transform={`rotate(${-comp.rotation}) translate(15, -25)`}>
-                                        <text x="0" y="0" fill="var(--text-dim)" fontSize="10" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                                    <g transform={`rotate(${-comp.rotation}) translate(30, -50)`}>
+                                        <text x="0" y="0" fill="var(--text-dim)" fontSize="20" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
                                             {(hits[comp.id] || 0).toFixed(2)}
                                         </text>
                                     </g>
@@ -437,51 +437,51 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             <g>
                                 {/* Cavity frame/body */}
                                 <rect
-                                    x={-(comp.params?.cavityLength ?? 100) / 2 - 5}
-                                    y="-25"
-                                    width={(comp.params?.cavityLength ?? 100) + 10}
-                                    height="50"
+                                    x={-(comp.params?.cavityLength ?? 100) / 2 - 10}
+                                    y="-50"
+                                    width={(comp.params?.cavityLength ?? 100) + 20}
+                                    height="100"
                                     fill="none"
                                     stroke="#444"
-                                    strokeWidth="1"
-                                    strokeDasharray="4,2"
-                                    rx="4"
+                                    strokeWidth="2"
+                                    strokeDasharray="8,4"
+                                    rx="8"
                                 />
                                 {/* Left mirror (curved) */}
                                 <path
-                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -20 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 8} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -40 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 16} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 40`}
                                     fill="none"
                                     stroke="#aaccff"
-                                    strokeWidth="3"
+                                    strokeWidth="6"
                                 />
                                 <path
-                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -20 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 8} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -40 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 16} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 40`}
                                     fill="none"
                                     stroke="silver"
-                                    strokeWidth="1.5"
+                                    strokeWidth="3"
                                 />
                                 {/* Right mirror (curved) */}
                                 <path
-                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -20 Q ${(comp.params?.cavityLength ?? 100) / 2 + 8} 0 ${(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -40 Q ${(comp.params?.cavityLength ?? 100) / 2 + 16} 0 ${(comp.params?.cavityLength ?? 100) / 2} 40`}
                                     fill="none"
                                     stroke="#aaccff"
-                                    strokeWidth="3"
+                                    strokeWidth="6"
                                 />
                                 <path
-                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -20 Q ${(comp.params?.cavityLength ?? 100) / 2 + 8} 0 ${(comp.params?.cavityLength ?? 100) / 2} 20`}
+                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -40 Q ${(comp.params?.cavityLength ?? 100) / 2 + 16} 0 ${(comp.params?.cavityLength ?? 100) / 2} 40`}
                                     fill="none"
                                     stroke="silver"
-                                    strokeWidth="1.5"
+                                    strokeWidth="3"
                                 />
                                 {/* Center axis line */}
                                 <line
-                                    x1={-(comp.params?.cavityLength ?? 100) / 2 + 5}
+                                    x1={-(comp.params?.cavityLength ?? 100) / 2 + 10}
                                     y1="0"
-                                    x2={(comp.params?.cavityLength ?? 100) / 2 - 5}
+                                    x2={(comp.params?.cavityLength ?? 100) / 2 - 10}
                                     y2="0"
                                     stroke="#333"
-                                    strokeWidth="1"
-                                    strokeDasharray="2,4"
+                                    strokeWidth="2"
+                                    strokeDasharray="4,8"
                                 />
                             </g>
                         )}
@@ -491,10 +491,10 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             <g>
                                 {/* Transparent hit area for click/drag - sized based on text */}
                                 <rect
-                                    x={-((comp.params?.content?.length || 5) * (comp.params?.fontSize || 16) * 0.35)}
-                                    y={-((comp.params?.fontSize || 16) * 0.6)}
-                                    width={(comp.params?.content?.length || 5) * (comp.params?.fontSize || 16) * 0.7}
-                                    height={(comp.params?.fontSize || 16) * 1.2}
+                                    x={-((comp.params?.content?.length || 5) * (comp.params?.fontSize || 32) * 0.35)}
+                                    y={-((comp.params?.fontSize || 32) * 0.6)}
+                                    width={(comp.params?.content?.length || 5) * (comp.params?.fontSize || 32) * 0.7}
+                                    height={(comp.params?.fontSize || 32) * 1.2}
                                     fill="transparent"
                                     stroke="none"
                                     style={{ cursor: 'grab' }}
@@ -503,7 +503,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                     x="0"
                                     y="0"
                                     fill={comp.params?.textColor && comp.params.textColor !== '#ffffff' ? comp.params.textColor : 'var(--text-main)'}
-                                    fontSize={comp.params?.fontSize || 16}
+                                    fontSize={comp.params?.fontSize || 32}
                                     textAnchor="middle"
                                     dominantBaseline="middle"
                                     fontFamily="Arial, sans-serif"
@@ -518,17 +518,17 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'hwp' && (
                             <g>
                                 {/* Plate body */}
-                                <rect x="-3" y="-15" width="6" height="30" fill="rgba(100, 255, 150, 0.4)" stroke="#4a4" strokeWidth="1" rx="1" />
+                                <rect x="-6" y="-30" width="12" height="60" fill="rgba(100, 255, 150, 0.4)" stroke="#4a4" strokeWidth="2" rx="2" />
                                 {/* Fast axis indicator */}
                                 <line
-                                    x1="0" y1="-12" x2="0" y2="12"
+                                    x1="0" y1="-24" x2="0" y2="24"
                                     stroke="#4a4"
-                                    strokeWidth="1"
-                                    strokeDasharray="2,2"
+                                    strokeWidth="2"
+                                    strokeDasharray="4,4"
                                     transform={`rotate(${comp.params?.fastAxis ?? 0})`}
                                 />
                                 {/* Label */}
-                                <text x="0" y="22" fill="#8f8" fontSize="8" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/2</text>
+                                <text x="0" y="44" fill="#8f8" fontSize="16" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/2</text>
                             </g>
                         )}
 
@@ -536,17 +536,17 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'qwp' && (
                             <g>
                                 {/* Plate body */}
-                                <rect x="-3" y="-15" width="6" height="30" fill="rgba(100, 180, 255, 0.4)" stroke="#48f" strokeWidth="1" rx="1" />
+                                <rect x="-6" y="-30" width="12" height="60" fill="rgba(100, 180, 255, 0.4)" stroke="#48f" strokeWidth="2" rx="2" />
                                 {/* Fast axis indicator */}
                                 <line
-                                    x1="0" y1="-12" x2="0" y2="12"
+                                    x1="0" y1="-24" x2="0" y2="24"
                                     stroke="#48f"
-                                    strokeWidth="1"
-                                    strokeDasharray="2,2"
+                                    strokeWidth="2"
+                                    strokeDasharray="4,4"
                                     transform={`rotate(${comp.params?.fastAxis ?? 45})`}
                                 />
                                 {/* Label */}
-                                <text x="0" y="22" fill="#8af" fontSize="8" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/4</text>
+                                <text x="0" y="44" fill="#8af" fontSize="16" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/4</text>
                             </g>
                         )}
 
@@ -554,19 +554,19 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'polarizer' && (
                             <g>
                                 {/* Body */}
-                                <rect x="-4" y="-15" width="8" height="30" fill="#333" stroke="#666" strokeWidth="1" rx="1" />
+                                <rect x="-8" y="-30" width="16" height="60" fill="#333" stroke="#666" strokeWidth="2" rx="2" />
                                 {/* Polarization stripes */}
-                                <line x1="0" y1="-12" x2="0" y2="12" stroke="#888" strokeWidth="0.5" />
-                                <line x1="-2" y1="-12" x2="-2" y2="12" stroke="#888" strokeWidth="0.5" />
-                                <line x1="2" y1="-12" x2="2" y2="12" stroke="#888" strokeWidth="0.5" />
+                                <line x1="0" y1="-24" x2="0" y2="24" stroke="#888" strokeWidth="1" />
+                                <line x1="-4" y1="-24" x2="-4" y2="24" stroke="#888" strokeWidth="1" />
+                                <line x1="4" y1="-24" x2="4" y2="24" stroke="#888" strokeWidth="1" />
                                 {/* Axis indicator arrow */}
                                 <line
-                                    x1="0" y1="-18" x2="0" y2="-22"
+                                    x1="0" y1="-36" x2="0" y2="-44"
                                     stroke="#ff0"
-                                    strokeWidth="2"
+                                    strokeWidth="4"
                                     transform={`rotate(${comp.params?.polarizerAxis ?? 0})`}
                                 />
-                                <circle cx="0" cy="-22" r="2" fill="#ff0" transform={`rotate(${comp.params?.polarizerAxis ?? 0})`} />
+                                <circle cx="0" cy="-44" r="4" fill="#ff0" transform={`rotate(${comp.params?.polarizerAxis ?? 0})`} />
                             </g>
                         )}
 
@@ -574,16 +574,16 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'pbs' && (
                             <g>
                                 {/* Cube body */}
-                                <rect x="-15" y="-15" width="30" height="30" fill="#445" stroke="#889" strokeWidth="1" />
+                                <rect x="-30" y="-30" width="60" height="60" fill="#445" stroke="#889" strokeWidth="2" />
                                 {/* Diagonal coating (polarizing surface) */}
-                                <line x1="-15" y1="15" x2="15" y2="-15" stroke="#8af" strokeWidth="2" />
+                                <line x1="-30" y1="30" x2="30" y2="-30" stroke="#8af" strokeWidth="4" />
                                 {/* PBS label */}
-                                <text x="0" y="22" fill="#8af" fontSize="8" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>PBS</text>
+                                <text x="0" y="44" fill="#8af" fontSize="16" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>PBS</text>
                                 {/* Axis indicator */}
                                 <line
-                                    x1="0" y1="-18" x2="0" y2="-25"
+                                    x1="0" y1="-36" x2="0" y2="-50"
                                     stroke="#ff0"
-                                    strokeWidth="2"
+                                    strokeWidth="4"
                                     transform={`rotate(${comp.params?.pbsAxis ?? 0})`}
                                 />
                             </g>
@@ -593,19 +593,19 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'poldetector' && (
                             <g>
                                 {/* Sensor Body (similar to detector but different color) */}
-                                <rect x="-5" y="-20" width="10" height="40" fill="#234" stroke="#68f" strokeWidth="1" />
+                                <rect x="-10" y="-40" width="20" height="80" fill="#234" stroke="#68f" strokeWidth="2" />
                                 {/* Active Area with polarization stripes */}
-                                <rect x="-5" y="-18" width="4" height="36" fill="#123" />
-                                <line x1="-4" y1="-15" x2="-4" y2="15" stroke="#68f" strokeWidth="0.5" />
-                                <line x1="-2" y1="-15" x2="-2" y2="15" stroke="#68f" strokeWidth="0.5" />
+                                <rect x="-10" y="-36" width="8" height="72" fill="#123" />
+                                <line x1="-8" y1="-30" x2="-8" y2="30" stroke="#68f" strokeWidth="1" />
+                                <line x1="-4" y1="-30" x2="-4" y2="30" stroke="#68f" strokeWidth="1" />
                                 {/* Readout Overlay (shows polarization) */}
                                 {(comp.params?.showReadout ?? true) && (
-                                    <g transform={`rotate(${-comp.rotation}) translate(15, 0)`}>
-                                        <rect x="-5" y="-16" width="55" height="32" rx="4" fill="rgba(0,0,0,0.85)" stroke="#68f" />
-                                        <text x="22" y="-4" fill="#8cf" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                                    <g transform={`rotate(${-comp.rotation}) translate(30, 0)`}>
+                                        <rect x="-10" y="-32" width="110" height="64" rx="8" fill="rgba(0,0,0,0.85)" stroke="#68f" />
+                                        <text x="44" y="-8" fill="#8cf" fontSize="16" textAnchor="middle" fontFamily="monospace">
                                             I: {(hits[comp.id] || 0).toFixed(2)}
                                         </text>
-                                        <text x="22" y="8" fill="#fc8" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                                        <text x="44" y="16" fill="#fc8" fontSize="16" textAnchor="middle" fontFamily="monospace">
                                             θ: {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°
                                         </text>
                                     </g>
