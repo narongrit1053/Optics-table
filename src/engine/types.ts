@@ -29,7 +29,8 @@ export interface OpticalComponent {
         height?: number;
         label?: string; // Text label
         brightness?: number; // Core beam intensity
-        glow?: number; // Side beam intensity
+        w0_um?: number; // Laser beam diameter in microns
+        glow?: number; // Side beam intensity (Legacy, removed from UI)
         efficiency?: number; // AOM diffraction efficiency (0-1)
         deviation?: number; // AOM deflection angle (degrees)
         lensShape?: 'convex' | 'concave' | 'plano-convex' | 'plano-concave'; // Lens geometry
@@ -52,6 +53,13 @@ export interface OpticalComponent {
     };
 }
 
+export interface GaussianParams {
+    w0: number; // Beam waist radius
+    z: number;  // Distance from waist (z position)
+    zR: number; // Rayleigh range
+    wavelength: number;
+}
+
 export interface Ray {
     start: Vector2D;
     direction: Vector2D;
@@ -59,5 +67,6 @@ export interface Ray {
     color: string;
     path: Vector2D[]; // Points along the ray path
     polarization: JonesVector; // Jones Vector for full state
+    gaussianParamsList: GaussianParams[]; // Parameters for each segment (length = path.length - 1)
 }
 

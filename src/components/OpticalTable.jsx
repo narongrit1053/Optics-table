@@ -12,6 +12,71 @@ const formatPower = (powerMW) => {
     return '0 mW';
 };
 
+// --- Vector Math ---
+const add = (v1, v2) => ({ x: v1.x + v2.x, y: v1.y + v2.y });
+const sub = (v1, v2) => ({ x: v1.x - v2.x, y: v1.y - v2.y });
+const mul = (v, s) => ({ x: v.x * s, y: v.y * s });
+const mag = (v) => Math.sqrt(v.x * v.x + v.y * v.y);
+const normalize = (v) => {
+    const m = mag(v);
+    return m === 0 ? { x: 0, y: 0 } : { x: v.x / m, y: v.y / m };
+};
+
+const getGaussianWidth = (z, w0, zR) => w0 * Math.sqrt(1 + (z / zR) ** 2);
+
+// --- Beam Rendering ---
+const generateBeamPolygon = (ray) => {
+    if (!ray.gaussianParamsList || ray.gaussianParamsList.length === 0) {
+        return null;
+    }
+
+    const leftPoints = [];
+    const rightPoints = [];
+    const STEPS = 10;
+
+    for (let i = 0; i < ray.path.length - 1; i++) {
+        const pStart = ray.path[i];
+        const pEnd = ray.path[i + 1];
+        const params = ray.gaussianParamsList[i];
+
+        if (!params) continue; // Should not happen if aligned
+
+        const dir = sub(pEnd, pStart);
+        const len = mag(dir);
+        const ndir = normalize(dir);
+        const perp = { x: -ndir.y, y: ndir.x };
+
+        for (let j = 0; j <= STEPS; j++) {
+            const t = j / STEPS;
+            // Avoid duplication at segment joins: skip first point if not first segment
+            if (i > 0 && j === 0) continue;
+
+            const currentPos = add(pStart, mul(dir, t));
+            const currentDist = len * t;
+            // params.z is the z-coordinate at the START of the segment
+            const zAtPoint = params.z + currentDist;
+            const w = getGaussianWidth(zAtPoint, params.w0, params.zR);
+
+            // Visual scaling: ensure beam is visible. 
+            // w0=1 unit (1mm). Visual width = 2*w.
+            const visualW = Math.max(w, 0.5); // Min width for visibility
+
+            leftPoints.push(add(currentPos, mul(perp, visualW)));
+            rightPoints.push(sub(currentPos, mul(perp, visualW)));
+        }
+    }
+
+    // Construct path: Left points forward, Right points backward
+    const points = [
+        ...leftPoints,
+        ...rightPoints.reverse()
+    ];
+
+    if (points.length === 0) return '';
+
+    return points.map(p => `${p.x},${p.y}`).join(' ');
+};
+
 const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) => {
     const [viewBox, setViewBox] = useState({ x: -1000, y: -500, w: 2000, h: 1000 });
     const [isPanning, setIsPanning] = useState(false);
@@ -293,17 +358,30 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                 <path className="no-export" d="M -10 0 L 10 0 M 0 -10 L 0 10" stroke="#00ff9d" strokeWidth="2" strokeOpacity="0.5" />
 
                 {/* Draw Rays */}
-                {rays.map((ray, i) => (
-                    <polyline
-                        key={`ray-${i}`}
-                        points={ray.path.map(p => `${p.x},${p.y}`).join(' ')}
-                        stroke={ray.color || 'red'}
-                        strokeWidth="4"
-                        fill="none"
-                        opacity={ray.intensity}
-                        strokeLinecap="round"
-                    />
-                ))}
+                {rays.map((ray, i) => {
+                    const polygonPoints = generateBeamPolygon(ray);
+                    return polygonPoints ? (
+                        <polygon
+                            key={`ray-${i}`}
+                            points={polygonPoints}
+                            fill={ray.color || 'red'}
+                            fillOpacity={ray.intensity * 0.6}
+                            stroke={ray.color || 'red'}
+                            strokeWidth="1"
+                            strokeOpacity={ray.intensity}
+                        />
+                    ) : (
+                        <polyline
+                            key={`ray-${i}`}
+                            points={ray.path.map(p => `${p.x},${p.y}`).join(' ')}
+                            stroke={ray.color || 'red'}
+                            strokeWidth="4"
+                            fill="none"
+                            opacity={ray.intensity}
+                            strokeLinecap="round"
+                        />
+                    );
+                })}
 
                 {/* Draw Components */}
                 {components.map(comp => (

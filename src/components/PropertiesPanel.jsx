@@ -123,17 +123,22 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             style={{ width: '100%' }}
                         />
 
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Glow Ratio (0-1)</label>
-                        <input
-                            type="range"
-                            onMouseDown={saveCheckpoint}
-                            min="0"
-                            max="1"
-                            step="0.05"
-                            value={selectedComp.params?.glow ?? 0.4}
-                            onChange={(e) => updateParam('glow', e.target.value)}
-                            style={{ width: '100%' }}
-                        />
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Beam Diameter (µm)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                                type="range"
+                                onMouseDown={saveCheckpoint}
+                                min="100"
+                                max="5000"
+                                step="100"
+                                value={selectedComp.params?.w0_um ?? 2000} // Default 2mm
+                                onChange={(e) => updateParam('w0_um', e.target.value)}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                {selectedComp.params?.w0_um ?? 2000}
+                            </span>
+                        </div>
 
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Color</label>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

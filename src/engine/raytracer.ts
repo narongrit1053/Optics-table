@@ -1,4 +1,4 @@
-import { OpticalComponent, Ray, Vector2D, Complex, JonesVector } from './types';
+import { OpticalComponent, Ray, Vector2D, Complex, JonesVector, GaussianParams } from './types';
 
 
 // Distance the ray travels if it hits nothing
@@ -117,8 +117,57 @@ const normalizeJones = (jv: JonesVector): JonesVector => {
 };
 
 
+// --- Gaussian Beam Helpers ---
+const WAVELENGTH = 532e-9; // Green (m) - typical
+const SCALE = 1e-3; // 1 unit = 1 mm. So wavelength in units = 532e-6 units.
 
-// --- Shape Definitions ---
+const getRayleighRange = (w0: number, wavelength: number): number => {
+    return (Math.PI * w0 * w0) / wavelength;
+};
+
+const propagateGaussian = (params: GaussianParams, distance: number): GaussianParams => {
+    return { ...params, z: params.z + distance };
+};
+
+const lensTransformGaussian = (params: GaussianParams, f: number): GaussianParams => {
+    // 1/q_out = 1/q_in - 1/f
+    // q = z + i*zR
+
+    // q_in complex
+    const z = params.z;
+    const zR = params.zR;
+    const den = z * z + zR * zR;
+
+    // 1/q_in = (z - i*zR) / den
+    const invQ_re = z / den;
+    const invQ_im = -zR / den;
+
+    // 1/q_out
+    const out_invQ_re = invQ_re - 1 / f;
+    const out_invQ_im = invQ_im; // Width doesn't change instantly, Im part relates to width
+
+    // q_out = 1 / (out_invQ_re + i*out_invQ_im)
+    //       = (out_invQ_re - i*out_invQ_im) / (out_invQ_re^2 + out_invQ_im^2)
+    const out_den = out_invQ_re * out_invQ_re + out_invQ_im * out_invQ_im;
+    const q_out_re = out_invQ_re / out_den;
+    const q_out_im = -out_invQ_im / out_den;
+
+    const newZ = q_out_re;
+    const newZR = q_out_im;
+
+    // Recalculate w0
+    // zR = pi * w0^2 / lambda => w0 = sqrt(zR * lambda / pi)
+    const newW0 = Math.sqrt((newZR * params.wavelength) / Math.PI);
+
+    return {
+        z: newZ,
+        zR: newZR,
+        w0: newW0,
+        wavelength: params.wavelength
+    };
+};
+
+// --- Shape Definitions ---// --- Shape Definitions ---
 
 // Mirror: Line Segment
 const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
@@ -388,6 +437,7 @@ interface PendingRay {
     color: string;
     bounces: number;
     polarization: JonesVector; // Jones Vector
+    gaussian: GaussianParams; // Gaussian params at origin
 }
 
 interface TraceResult {
@@ -411,7 +461,14 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
     let currentDir = pending.dir;
     let currentIntensity = pending.intensity;
     let currentPol = pending.polarization; // Jones Vector
+    let currentGaussian = pending.gaussian;
     let path = [currentOrigin];
+    let gaussianList: GaussianParams[] = []; // Params for each segment
+
+    // Push initial gaussian params for the first segment (which doesn't exist yet but will be created)
+    // Wait, gaussianList aligns with segments. Segment i connects point i and i+1.
+    // So we push `currentGaussian` when we start a new segment.
+
     let currentRefractiveIndex = REFRACTIVE_INDEX_AIR;
     let nextRays: PendingRay[] = [];
     let hits: Record<string, number> = {};
@@ -675,6 +732,13 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
         if (closestHit) {
             const hit = closestHit as HitRecord;
 
+            // Store params for the segment we just finished (origin -> hit)
+            gaussianList.push({ ...currentGaussian });
+
+            // Update beam phase (z propagation)
+            const dist = mag(sub(hit.point, currentOrigin));
+            currentGaussian = propagateGaussian(currentGaussian, dist);
+
             path.push(hit.point);
             currentOrigin = hit.point;
 
@@ -755,7 +819,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: currentIntensity * reflectivity,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
 
@@ -767,7 +832,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: currentIntensity * (1 - reflectivity),
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
                 break;
@@ -784,7 +850,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: currentIntensity * (1 - efficiency),
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
 
@@ -803,7 +870,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: currentIntensity * efficiency,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
                 break;
@@ -828,7 +896,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                     intensity: currentIntensity,
                     color: pending.color,
                     bounces: pending.bounces + 1,
-                    polarization: currentPol
+                    polarization: currentPol,
+                    gaussian: currentGaussian
                 });
                 break;
             }
@@ -851,7 +920,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                     intensity: currentIntensity,
                     color: pending.color,
                     bounces: pending.bounces + 1,
-                    polarization: currentPol
+                    polarization: currentPol,
+                    gaussian: currentGaussian
                 });
                 break;
             }
@@ -874,7 +944,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: currentIntensity,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
                 break;
@@ -901,7 +972,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: transInt,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: transPol
+                        polarization: transPol,
+                        gaussian: currentGaussian
                     });
                 }
 
@@ -922,7 +994,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: reflInt,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: reflPol
+                        polarization: reflPol,
+                        gaussian: currentGaussian
                     });
                 }
 
@@ -955,6 +1028,64 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                     currentDir = normalize(add(term1, term2));
                     currentRefractiveIndex = n2;
                 }
+
+
+                // Lens Interaction: Transform Gaussian
+                let f = hit.component.params?.focalLength || 100;
+                const shape = hit.component.params?.lensShape || 'convex';
+
+                if (shape.includes('concave')) {
+                    f = -f;
+                }
+                // If exiting lens (back to air), or entering?
+                // Thin lens approx: apply transformation ONCE at the lens plane.
+                // Our intersection logic hits discrete surfaces?
+                // Lens boundary function returns 'surfaces'.
+                // If we treat it as thin lens, we should only apply phase mask once.
+                // But tracer hits "Left Face" then "Right Face" for real thick lens?
+                // Simulation uses `getLensBoundaries` -> 2 circles.
+                // It is a thick lens.
+                // For simplicity, we can apply the focusing power at the SECOND interface (exit)?
+                // Or just apply ideal thin lens at the center?
+                // The ray tracer actually hits the SURFACE.
+                // If we want "Physically correct Gaussian", we need ABCD for dielectric interface (curved).
+                // Matrix for curved interface radius R, index n1->n2:
+                // A=1, B=0, C=(n1-n2)/(R*n2), D=n1/n2.
+                // This is getting complex.
+                // SIMPLIFICATION: We only care about the visual "focusing effect". 
+                // We'll trust the ray direction change (Snell's law) which is already handled above!
+                // Wait, if ray direction changes, it converges.
+                // If we simply propagate Gaussian Z along the new converging rays, does the width shrink?
+                // In Ray interpretation: Yes, converging rays define the envelope.
+                // In Gaussian interpretation: We calculate width analytically $w(z)$.
+                // If we rely on Snell's law for `dir`, the rays converge geometrically.
+                // But Gaussian `w(z)` is calculated from `w0` and `z`.
+                // If we don't update `gaussianParams`, `w(z)` will just keep expanding (diffracting).
+                // So we MUST update `gaussianParams` to reflect that we are now "focusing".
+                // Simplest approach: Reset `z` to correspond to the new focal point?
+                // Better: Apply ABCD for the curved interface.
+                // C (power) = (n1 - n2) / (R * n2).
+                // D = n1 / n2.
+                // Let's implement this interface transform.
+
+                // Raytracer calculated refraction n1->n2.
+                // Surface curvature:
+                // We need R of the surface we hit.
+                // `getLensBoundaries` returns surfaces. We don't easily know R here without re-checking.
+                // Hack: We can just use the Focal Length `f` of the lens and apply a Thin Lens transform
+                // ONLY when hitting a specific part (e.g. center)? Or splitting it?
+                // Or, since implementation plan mentioned Thin Lens ABCD:
+                // Let's stick to Thin Lens approx applied ONCE.
+                // But the ray hits TWO surfaces.
+                // We can apply half power at each? Or just apply at exit?
+                // Let's apply at EXIT (n2 = Air).
+
+                if (n2 === REFRACTIVE_INDEX_AIR) {
+                    // Exiting lens -> Apply focusing
+                    // Thin lens f is total focal length.
+                    currentGaussian = lensTransformGaussian(currentGaussian, f);
+                }
+
                 currentOrigin = add(currentOrigin, mul(currentDir, EPSILON * 2));
             }
             else if (hit.type === 'beamsplitter') {
@@ -972,7 +1103,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: pending.intensity * (1 - ratio),
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
 
@@ -985,13 +1117,15 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         intensity: pending.intensity * ratio,
                         color: pending.color,
                         bounces: pending.bounces + 1,
-                        polarization: currentPol
+                        polarization: currentPol,
+                        gaussian: currentGaussian
                     });
                 }
                 break;
             }
         }
         else {
+            gaussianList.push({ ...currentGaussian });
             path.push(add(currentOrigin, mul(currentDir, MAX_RAY_LENGTH)));
             break;
         }
@@ -1004,7 +1138,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
             intensity: pending.intensity,
             color: pending.color,
             path: path,
-            polarization: pending.polarization
+            polarization: pending.polarization,
+            gaussianParamsList: gaussianList
         },
         nextRays,
         hits,
@@ -1034,56 +1169,37 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         const glowRatio = laser.params?.glow ?? 0.4;      // Ratio 0-1 (Fraction of power in glow)
 
         // Calculate power distribution
-        // Core gets the remaining power after glow is removed
-        const coreIntensity = totalPower * (1 - glowRatio);
-
-        // Glow power is split between two side rays
-        const sideIntensity = (totalPower * glowRatio) / 2;
-
         const polarizationAngle = laser.params?.polarization ?? 0;
         const localPol = getLinearPolarization(polarizationAngle);
-        // rotateJonesVector implements coordinate rotation (-theta). 
-        // To rotate vector by +laser.rotation, we pass -laser.rotation.
         const polarization = rotateJonesVector(localPol, -laser.rotation);
 
+        // Gaussian Init
+        const wavelength = 532e-6; // 532 nm in mm (approx)
 
-        const perp = { x: -dir.y, y: dir.x };
-        const offset = 2.5;
+        // Params: w0_um is diameter in microns (default 2000 => 2mm diameter => 1mm radius)
+        const diameterMicrons = laser.params?.w0_um ?? 2000;
+        const waistRadiusMm = (diameterMicrons / 2) / 1000;
 
-        // Queue 3 Rays with polarization
-        // 1. Core Ray
-        if (coreIntensity > MIN_INTENSITY) {
+        const w0 = waistRadiusMm;
+        const zR = getRayleighRange(w0, wavelength);
+
+        const gaussian: GaussianParams = {
+            w0: w0,
+            z: 0, // Start at waist
+            zR: zR,
+            wavelength: wavelength
+        };
+
+        // Queue ONLY Core Ray (Gaussian Axis)
+        if (totalPower > MIN_INTENSITY) {
             queue.push({
                 origin: { ...laser.position },
                 dir,
-                intensity: coreIntensity,
+                intensity: totalPower,
                 color: baseColor,
                 bounces: 0,
-                polarization
-            });
-        }
-
-        // 2. Side Ray 1
-        if (sideIntensity > MIN_INTENSITY) {
-            queue.push({
-                origin: add(laser.position, mul(perp, offset)),
-                dir,
-                intensity: sideIntensity,
-                color: baseColor,
-                bounces: 0,
-                polarization
-            });
-        }
-
-        // 3. Side Ray 2
-        if (sideIntensity > MIN_INTENSITY) {
-            queue.push({
-                origin: sub(laser.position, mul(perp, offset)),
-                dir,
-                intensity: sideIntensity,
-                color: baseColor,
-                bounces: 0,
-                polarization
+                polarization,
+                gaussian
             });
         }
     });

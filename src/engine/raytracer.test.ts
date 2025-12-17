@@ -347,36 +347,6 @@ describe('Raytracer Engine', () => {
         expect(angle).toBeCloseTo(30, 0);
     });
 
-    it('should split power correctly between core and glow rays', () => {
-        const components: OpticalComponent[] = [{
-            id: 'laser1',
-            type: 'laser',
-            position: { x: 0, y: 0 },
-            rotation: 0,
-            params: {
-                brightness: 100, // 100 mW
-                glow: 0.1        // 10% Ratio
-            }
-        }];
 
-        const { rays } = calculateRays(components);
-
-        // Expect 3 rays
-        expect(rays.length).toBe(3);
-
-        const coreRay = rays[0];
-        const sideRay1 = rays[1];
-        const sideRay2 = rays[2]; // Assumed order from push
-
-        // Core Power = 100 * (1 - 0.1) = 90
-        expect(coreRay.intensity).toBeCloseTo(90);
-
-        // Side Power = (100 * 0.1) / 2 = 5
-        expect(sideRay1.intensity).toBeCloseTo(5);
-        expect(sideRay2.intensity).toBeCloseTo(5);
-
-        // Total Conservation
-        expect(coreRay.intensity + sideRay1.intensity + sideRay2.intensity).toBeCloseTo(100);
-    });
 
 });
