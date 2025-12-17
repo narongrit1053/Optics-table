@@ -22,6 +22,8 @@ export interface OpticalComponent {
     rotation: number; // Degrees
     params?: {
         power?: number;
+        profile?: 'simple' | 'gaussian'; // Beam profile
+        beamDiameter?: number; // Beam width parameter
         color?: string; // Hex color for laser
         focalLength?: number; // For lens
         transmission?: number; // For beam splitter
@@ -67,6 +69,19 @@ export interface Ray {
     color: string;
     path: Vector2D[]; // Points along the ray path
     polarization: JonesVector; // Jones Vector for full state
+    gaussian?: GaussianParams; // Initial gaussian param (for PendingRay)
+    isGaussian?: boolean; // Flag to force Gaussian rendering (Polygon vs Polyline)
     gaussianParamsList: GaussianParams[]; // Parameters for each segment (length = path.length - 1)
+}
+
+export interface PendingRay {
+    origin: Vector2D;
+    dir: Vector2D;
+    intensity: number;
+    color: string;
+    bounces: number;
+    polarization: JonesVector;
+    gaussian: GaussianParams; // Now required or we handle optional? Raytracer assumes it exists.
+    isGaussian?: boolean;
 }
 

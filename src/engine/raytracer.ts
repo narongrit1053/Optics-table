@@ -126,6 +126,7 @@ const getRayleighRange = (w0: number, wavelength: number): number => {
 };
 
 const propagateGaussian = (params: GaussianParams, distance: number): GaussianParams => {
+    if (!params) return { w0: 0, z: 0, zR: 1, wavelength: 532e-9 }; // Safety fallback
     return { ...params, z: params.z + distance };
 };
 
@@ -820,7 +821,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
 
@@ -833,7 +835,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
                 break;
@@ -851,7 +854,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
 
@@ -871,7 +875,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
                 break;
@@ -945,7 +950,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
                 break;
@@ -973,7 +979,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: transPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
 
@@ -995,7 +1002,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: reflPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
 
@@ -1104,7 +1112,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
 
@@ -1118,7 +1127,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         color: pending.color,
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
-                        gaussian: currentGaussian
+                        gaussian: currentGaussian,
+                        isGaussian: pending.isGaussian
                     });
                 }
                 break;
@@ -1139,7 +1149,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
             color: pending.color,
             path: path,
             polarization: pending.polarization,
-            gaussianParamsList: gaussianList
+            gaussianParamsList: pending.isGaussian ? gaussianList : [], // Only populate if Gaussian
+            isGaussian: pending.isGaussian
         },
         nextRays,
         hits,
@@ -1168,39 +1179,128 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         const totalPower = laser.params?.brightness ?? 1; // Default 1.0 (Assume mW)
         const glowRatio = laser.params?.glow ?? 0.4;      // Ratio 0-1 (Fraction of power in glow)
 
+        const profile = laser.params?.profile ?? 'simple';
+        const beamDiameter = laser.params?.beamDiameter ?? 5.0; // microns or pixels equivalent
+
         // Calculate power distribution
         const polarizationAngle = laser.params?.polarization ?? 0;
         const localPol = getLinearPolarization(polarizationAngle);
         const polarization = rotateJonesVector(localPol, -laser.rotation);
 
-        // Gaussian Init
-        const wavelength = 532e-6; // 532 nm in mm (approx)
+        // Initial Gaussian Parameters
+        const w0 = beamDiameter / 2; // Radius in microns
+        // Approximate Rayleigh range for 532nm (Green) default
+        const lambda = 0.532;
+        const zR = (Math.PI * w0 * w0) / lambda;
 
-        // Params: w0_um is diameter in microns (default 2000 => 2mm diameter => 1mm radius)
-        const diameterMicrons = laser.params?.w0_um ?? 2000;
-        const waistRadiusMm = (diameterMicrons / 2) / 1000;
-
-        const w0 = waistRadiusMm;
-        const zR = getRayleighRange(w0, wavelength);
-
-        const gaussian: GaussianParams = {
+        const initialGaussian: GaussianParams = {
             w0: w0,
-            z: 0, // Start at waist
+            z: 0,
             zR: zR,
-            wavelength: wavelength
+            wavelength: lambda
         };
 
-        // Queue ONLY Core Ray (Gaussian Axis)
-        if (totalPower > MIN_INTENSITY) {
-            queue.push({
-                origin: { ...laser.position },
-                dir,
-                intensity: totalPower,
-                color: baseColor,
-                bounces: 0,
-                polarization,
-                gaussian
+
+        const perp = { x: -dir.y, y: dir.x };
+
+        if (profile === 'gaussian') {
+            const beamRadiusMm = (beamDiameter / 2) / 1000; // Convert micron diameter to mm radius
+            const distributionRangeMm = 4 * beamRadiusMm; // Spread over +/- 2*w0 (98% power)
+
+            const numRays = 19; // Odd number
+            const step = distributionRangeMm / (numRays - 1);
+
+            // Calculate unnormalized intensities
+            const rayProps: { offset: number, intens: number }[] = [];
+            let sumIntens = 0;
+
+            for (let i = 0; i < numRays; i++) {
+                const offset = -(distributionRangeMm / 2) + i * step;
+                const r2 = offset * offset;
+                const w2 = beamRadiusMm * beamRadiusMm;
+                const val = Math.exp(-2 * r2 / w2);
+                rayProps.push({ offset, intens: val });
+                sumIntens += val;
+            }
+
+            // Normalize and queue
+            rayProps.forEach(prop => {
+                const realIntensity = (prop.intens / sumIntens) * totalPower;
+
+                if (realIntensity > MIN_INTENSITY) {
+                    queue.push({
+                        origin: add(laser.position, mul(perp, prop.offset)),
+                        dir,
+                        intensity: realIntensity,
+                        color: baseColor,
+                        bounces: 0,
+                        bounces: 0,
+                        bounces: 0,
+                        polarization,
+                        gaussian: initialGaussian,
+                        isGaussian: false // Render as simple lines, not envelopes
+                    });
+                }
             });
+        } else {
+            // Simple Mode
+            // Calculate power distribution
+            // Core gets the remaining power after glow is removed
+            const coreIntensity = totalPower * (1 - glowRatio);
+
+            // Glow power is split between two side rays
+            const sideIntensity = (totalPower * glowRatio) / 2;
+
+            const offset = 2.5;
+
+            // Queue 3 Rays with polarization
+            // 1. Core Ray
+            if (coreIntensity > MIN_INTENSITY) {
+                queue.push({
+                    origin: { ...laser.position },
+                    dir,
+                    intensity: coreIntensity,
+                    color: baseColor,
+                    bounces: 0,
+                    color: baseColor,
+                    bounces: 0,
+                    polarization,
+                    gaussian: initialGaussian,
+                    isGaussian: false
+                });
+            }
+
+            // 2. Side Ray 1
+            if (sideIntensity > MIN_INTENSITY) {
+                queue.push({
+                    origin: add(laser.position, mul(perp, offset)),
+                    dir,
+                    intensity: sideIntensity,
+                    color: baseColor,
+                    bounces: 0,
+                    color: baseColor,
+                    bounces: 0,
+                    polarization,
+                    gaussian: initialGaussian,
+                    isGaussian: false
+                });
+            }
+
+            // 3. Side Ray 2
+            if (sideIntensity > MIN_INTENSITY) {
+                queue.push({
+                    origin: sub(laser.position, mul(perp, offset)),
+                    dir,
+                    intensity: sideIntensity,
+                    color: baseColor,
+                    bounces: 0,
+                    color: baseColor,
+                    bounces: 0,
+                    polarization,
+                    gaussian: initialGaussian,
+                    isGaussian: false
+                });
+            }
         }
     });
 

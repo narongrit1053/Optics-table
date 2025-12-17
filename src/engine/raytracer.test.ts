@@ -349,4 +349,33 @@ describe('Raytracer Engine', () => {
 
 
 
+    it('should generate gaussian distribution', () => {
+        const components: OpticalComponent[] = [{
+            id: 'laser1',
+            type: 'laser',
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            params: {
+                brightness: 100, // 100 mW
+                profile: 'gaussian',
+                beamDiameter: 10
+            }
+        }];
+
+        const { rays } = calculateRays(components);
+
+        // Expect 19 rays
+        expect(rays.length).toBe(19);
+
+        // Center ray should be brightest (Index 9)
+        const centerRay = rays[9];
+        const sideRay = rays[0]; // Edge ray
+
+        expect(centerRay.intensity).toBeGreaterThan(sideRay.intensity);
+
+        // Sum of all intensities should be approx 100
+        const totalIntensity = rays.reduce((sum, r) => sum + r.intensity, 0);
+        expect(totalIntensity).toBeCloseTo(100, 0);
+    });
+
 });

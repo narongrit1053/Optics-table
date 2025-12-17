@@ -123,22 +123,59 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             style={{ width: '100%' }}
                         />
 
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Beam Diameter (µm)</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <input
-                                type="range"
-                                onMouseDown={saveCheckpoint}
-                                min="100"
-                                max="5000"
-                                step="100"
-                                value={selectedComp.params?.w0_um ?? 2000} // Default 2mm
-                                onChange={(e) => updateParam('w0_um', e.target.value)}
-                                style={{ flex: 1 }}
-                            />
-                            <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
-                                {selectedComp.params?.w0_um ?? 2000}
-                            </span>
-                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Beam Profile</label>
+                        <select
+                            value={selectedComp.params?.profile || 'simple'}
+                            onChange={(e) => updateParam('profile', e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                border: '1px solid var(--border)',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                marginBottom: '10px'
+                            }}
+                        >
+                            <option value="simple">Simple (3-Ray)</option>
+                            <option value="gaussian">Gaussian (Multi-Ray)</option>
+                        </select>
+
+                        {(selectedComp.params?.profile === 'gaussian') ? (
+                            <>
+                                <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Beam Diameter (µm)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input
+                                        type="range"
+                                        onMouseDown={saveCheckpoint}
+                                        min="100"
+                                        max="5000"
+                                        step="100"
+                                        value={selectedComp.params?.beamDiameter ?? 2000} // Default 2mm
+                                        onChange={(e) => updateParam('beamDiameter', e.target.value)}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <span style={{ minWidth: '40px', textAlign: 'right', fontSize: '0.9rem' }}>
+                                        {selectedComp.params?.beamDiameter ?? 2000}
+                                    </span>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Glow Ratio (0-1)</label>
+                                <input
+                                    type="range"
+                                    onMouseDown={saveCheckpoint}
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={selectedComp.params?.glow ?? 0.4}
+                                    onChange={(e) => updateParam('glow', e.target.value)}
+                                    style={{ width: '100%' }}
+                                />
+                            </>
+                        )}
 
                         <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Color</label>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

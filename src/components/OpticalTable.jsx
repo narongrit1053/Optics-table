@@ -365,10 +365,10 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             key={`ray-${i}`}
                             points={polygonPoints}
                             fill={ray.color || 'red'}
-                            fillOpacity={ray.intensity * 0.6}
+                            fillOpacity={Math.min(1, ray.intensity * 2 + 0.2)}
                             stroke={ray.color || 'red'}
                             strokeWidth="1"
-                            strokeOpacity={ray.intensity}
+                            strokeOpacity={Math.min(1, ray.intensity * 2 + 0.2)}
                         />
                     ) : (
                         <polyline
@@ -377,7 +377,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                             stroke={ray.color || 'red'}
                             strokeWidth="4"
                             fill="none"
-                            opacity={ray.intensity}
+                            opacity={Math.min(1, ray.intensity * 2 + 0.2)}
                             strokeLinecap="round"
                         />
                     );
