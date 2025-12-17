@@ -6,7 +6,7 @@ import { OpticalComponent, Ray, Vector2D, Complex, JonesVector } from './types';
 const MAX_RAY_LENGTH = 2000;
 const MAX_BOUNCES = 20;
 const MAX_TOTAL_RAYS = 2000; // Hard cap to prevent freezing
-const MIN_INTENSITY = 0.01;
+const MIN_INTENSITY = 0.0001; // Updated to 0.1 uW for better sensitivity
 const EPSILON = 0.001;
 const REFRACTIVE_INDEX_AIR = 1.0;
 const REFRACTIVE_INDEX_GLASS = 1.5;
@@ -1030,8 +1030,16 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         else if (rot === 270) dir = { x: 0, y: -1 };
 
         const baseColor = laser.params?.color || '#ff0000';
-        const brightness = laser.params?.brightness ?? 1; // Default 1.0
-        const glow = laser.params?.glow ?? 0.4;           // Default 0.4
+        const totalPower = laser.params?.brightness ?? 1; // Default 1.0 (Assume mW)
+        const glowRatio = laser.params?.glow ?? 0.4;      // Ratio 0-1 (Fraction of power in glow)
+
+        // Calculate power distribution
+        // Core gets the remaining power after glow is removed
+        const coreIntensity = totalPower * (1 - glowRatio);
+
+        // Glow power is split between two side rays
+        const sideIntensity = (totalPower * glowRatio) / 2;
+
         const polarizationAngle = laser.params?.polarization ?? 0;
         const localPol = getLinearPolarization(polarizationAngle);
         // rotateJonesVector implements coordinate rotation (-theta). 
@@ -1043,30 +1051,41 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
         const offset = 2.5;
 
         // Queue 3 Rays with polarization
-        queue.push({
-            origin: { ...laser.position },
-            dir,
-            intensity: brightness,
-            color: baseColor,
-            bounces: 0,
-            polarization
-        });
-        queue.push({
-            origin: add(laser.position, mul(perp, offset)),
-            dir,
-            intensity: glow,
-            color: baseColor,
-            bounces: 0,
-            polarization
-        });
-        queue.push({
-            origin: sub(laser.position, mul(perp, offset)),
-            dir,
-            intensity: glow,
-            color: baseColor,
-            bounces: 0,
-            polarization
-        });
+        // 1. Core Ray
+        if (coreIntensity > MIN_INTENSITY) {
+            queue.push({
+                origin: { ...laser.position },
+                dir,
+                intensity: coreIntensity,
+                color: baseColor,
+                bounces: 0,
+                polarization
+            });
+        }
+
+        // 2. Side Ray 1
+        if (sideIntensity > MIN_INTENSITY) {
+            queue.push({
+                origin: add(laser.position, mul(perp, offset)),
+                dir,
+                intensity: sideIntensity,
+                color: baseColor,
+                bounces: 0,
+                polarization
+            });
+        }
+
+        // 3. Side Ray 2
+        if (sideIntensity > MIN_INTENSITY) {
+            queue.push({
+                origin: sub(laser.position, mul(perp, offset)),
+                dir,
+                intensity: sideIntensity,
+                color: baseColor,
+                bounces: 0,
+                polarization
+            });
+        }
     });
 
     // Process Queue

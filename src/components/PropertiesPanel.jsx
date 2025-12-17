@@ -111,7 +111,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             style={{ width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)' }}
                         />
 
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Power (Brightness)</label>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '10px' }}>Power (Total) [mW]</label>
                         <input
                             type="range"
                             onMouseDown={saveCheckpoint}
@@ -123,7 +123,7 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                             style={{ width: '100%' }}
                         />
 
-                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Glow (Side Rays)</label>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', marginTop: '5px' }}>Glow Ratio (0-1)</label>
                         <input
                             type="range"
                             onMouseDown={saveCheckpoint}

@@ -4,6 +4,14 @@ import { calculateRays } from '../engine/raytracer';
 
 const GRID_SIZE = 40;
 
+const formatPower = (powerMW) => {
+    if (powerMW >= 1000) return `${(powerMW / 1000).toFixed(2)} W`;
+    if (powerMW >= 1) return `${powerMW.toFixed(2)} mW`;
+    if (powerMW >= 0.001) return `${(powerMW * 1000).toFixed(1)} µW`;
+    if (powerMW > 0) return `< 1 µW`;
+    return '0 mW';
+};
+
 const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) => {
     const [viewBox, setViewBox] = useState({ x: -1000, y: -500, w: 2000, h: 1000 });
     const [isPanning, setIsPanning] = useState(false);
@@ -418,7 +426,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                     <g transform={`rotate(${-comp.rotation}) translate(30, 0)`}>
                                         <rect x="-10" y="-20" width="90" height="40" rx="8" fill="rgba(0,0,0,0.8)" stroke="#555" />
                                         <text x="34" y="8" fill="#0f0" fontSize="20" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                                            {(hits[comp.id] || 0).toFixed(2)}
+                                            {formatPower(hits[comp.id] || 0)}
                                         </text>
                                     </g>
                                 )}
@@ -474,7 +482,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                 {(comp.params?.showReadout ?? true) && (
                                     <g transform={`rotate(${-comp.rotation}) translate(30, -50)`}>
                                         <text x="0" y="0" fill="var(--text-dim)" fontSize="20" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
-                                            {(hits[comp.id] || 0).toFixed(2)}
+                                            {formatPower(hits[comp.id] || 0)}
                                         </text>
                                     </g>
                                 )}
@@ -702,7 +710,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                         </g>
 
                                         <text x="40" y="36" fill="#8cf" fontSize="12" textAnchor="middle" fontFamily="monospace">
-                                            {(hits[comp.id] || 0).toFixed(1)}mW
+                                            {formatPower(hits[comp.id] || 0)}
                                         </text>
                                         <text x="40" y="-38" fill="#fc8" fontSize="12" textAnchor="middle" fontFamily="monospace">
                                             {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°

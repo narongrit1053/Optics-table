@@ -10,13 +10,13 @@ describe('Raytracer Engine', () => {
             type: 'laser',
             position: { x: 0, y: 0 },
             rotation: 0,
-            params: { power: 1, color: 'red' }
+            params: { power: 1, color: 'red', glow: 0 }
         }];
 
         const { rays } = calculateRays(components);
 
-        // Should have 3 rays (Center + 2 Side)
-        expect(rays.length).toBe(3);
+        // Should have 1 ray (Core only, since glow=0)
+        expect(rays.length).toBe(1);
 
         const centerRay = rays[0];
         expect(centerRay.intensity).toBe(1);
@@ -34,7 +34,7 @@ describe('Raytracer Engine', () => {
                 type: 'laser',
                 position: { x: 0, y: 0 },
                 rotation: 0, // Pointing Right
-                params: { power: 1, color: 'red' }
+                params: { power: 1, color: 'red', glow: 0 }
             },
             {
                 id: 'mirror1',
@@ -93,7 +93,7 @@ describe('Raytracer Engine', () => {
                 type: 'laser',
                 position: { x: 0, y: 0 },
                 rotation: 0,
-                params: { power: 1 }
+                params: { power: 1, glow: 0 }
             },
             {
                 id: 'bs1',
@@ -137,7 +137,7 @@ describe('Raytracer Engine', () => {
                 type: 'laser',
                 position: { x: 0, y: 0 },
                 rotation: 0,
-                params: { power: 1 }
+                params: { power: 1, glow: 0 }
             },
             {
                 id: 'det1',
@@ -151,7 +151,7 @@ describe('Raytracer Engine', () => {
         const { hits } = calculateRays(components);
 
         expect(hits['det1']).toBeGreaterThan(0);
-        expect(hits['det1']).toBeCloseTo(1.8, 1);
+        expect(hits['det1']).toBeCloseTo(1.0, 1);
     });
 
     it('should split beam at AOM (0th and 1st order)', () => {
@@ -161,7 +161,7 @@ describe('Raytracer Engine', () => {
                 type: 'laser',
                 position: { x: 0, y: 0 },
                 rotation: 0,
-                params: { power: 1 }
+                params: { power: 1, glow: 0 }
             },
             {
                 id: 'aom1',
@@ -345,6 +345,38 @@ describe('Raytracer Engine', () => {
 
         expect(angle).toBeDefined();
         expect(angle).toBeCloseTo(30, 0);
+    });
+
+    it('should split power correctly between core and glow rays', () => {
+        const components: OpticalComponent[] = [{
+            id: 'laser1',
+            type: 'laser',
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            params: {
+                brightness: 100, // 100 mW
+                glow: 0.1        // 10% Ratio
+            }
+        }];
+
+        const { rays } = calculateRays(components);
+
+        // Expect 3 rays
+        expect(rays.length).toBe(3);
+
+        const coreRay = rays[0];
+        const sideRay1 = rays[1];
+        const sideRay2 = rays[2]; // Assumed order from push
+
+        // Core Power = 100 * (1 - 0.1) = 90
+        expect(coreRay.intensity).toBeCloseTo(90);
+
+        // Side Power = (100 * 0.1) / 2 = 5
+        expect(sideRay1.intensity).toBeCloseTo(5);
+        expect(sideRay2.intensity).toBeCloseTo(5);
+
+        // Total Conservation
+        expect(coreRay.intensity + sideRay1.intensity + sideRay2.intensity).toBeCloseTo(100);
     });
 
 });
