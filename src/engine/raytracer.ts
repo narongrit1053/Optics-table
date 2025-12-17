@@ -1,4 +1,5 @@
 import { OpticalComponent, Ray, Vector2D, Complex, JonesVector, GaussianParams, PendingRay } from './types';
+import { add, sub, mul, dot, mag, normalize, rotatePoint } from './mathUtils';
 
 
 // Distance the ray travels if it hits nothing
@@ -11,29 +12,9 @@ const EPSILON = 0.001;
 const REFRACTIVE_INDEX_AIR = 1.0;
 const REFRACTIVE_INDEX_GLASS = 1.5;
 
-// --- Vector Math Utilities ---
-const add = (v1: Vector2D, v2: Vector2D): Vector2D => ({ x: v1.x + v2.x, y: v1.y + v2.y });
-const sub = (v1: Vector2D, v2: Vector2D): Vector2D => ({ x: v1.x - v2.x, y: v1.y - v2.y });
-const mul = (v: Vector2D, s: number): Vector2D => ({ x: v.x * s, y: v.y * s });
-const dot = (v1: Vector2D, v2: Vector2D): number => v1.x * v2.x + v1.y * v2.y;
-const mag = (v: Vector2D): number => Math.sqrt(v.x * v.x + v.y * v.y);
-const normalize = (v: Vector2D): Vector2D => {
-    const m = mag(v);
-    return m === 0 ? { x: 0, y: 0 } : { x: v.x / m, y: v.y / m };
-};
 
-// Rotate a point around a center
-const rotatePoint = (point: Vector2D, center: Vector2D, angleDeg: number): Vector2D => {
-    const rad = (angleDeg * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    const dx = point.x - center.x;
-    const dy = point.y - center.y;
-    return {
-        x: center.x + dx * cos - dy * sin,
-        y: center.y + dx * sin + dy * cos
-    };
-};
+// --- Vector Math Utilities ---
+// Imported from ./mathUtils
 
 // --- Complex & Jones Math (Inline to avoid extra files/imports for now) ---
 const cAdd = (c1: Complex, c2: Complex): Complex => ({ re: c1.re + c2.re, im: c1.im + c2.im });

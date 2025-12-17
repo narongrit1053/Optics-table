@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateRays } from '../engine/raytracer';
+import { add, sub, mul, mag, normalize, getGaussianWidth } from '../engine/mathUtils';
 
 const GRID_SIZE = 40;
 
@@ -12,17 +13,9 @@ const formatPower = (powerMW) => {
     return '0 mW';
 };
 
-// --- Vector Math ---
-const add = (v1, v2) => ({ x: v1.x + v2.x, y: v1.y + v2.y });
-const sub = (v1, v2) => ({ x: v1.x - v2.x, y: v1.y - v2.y });
-const mul = (v, s) => ({ x: v.x * s, y: v.y * s });
-const mag = (v) => Math.sqrt(v.x * v.x + v.y * v.y);
-const normalize = (v) => {
-    const m = mag(v);
-    return m === 0 ? { x: 0, y: 0 } : { x: v.x / m, y: v.y / m };
-};
 
-const getGaussianWidth = (z, w0, zR) => w0 * Math.sqrt(1 + (z / zR) ** 2);
+// --- Vector Math ---
+// Imported from ../engine/mathUtils
 
 // --- Beam Rendering ---
 const generateBeamPolygon = (ray) => {
