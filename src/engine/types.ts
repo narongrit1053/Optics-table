@@ -70,7 +70,7 @@ export interface Ray {
     path: Vector2D[]; // Points along the ray path
     polarization: JonesVector; // Jones Vector for full state
     gaussian?: GaussianParams; // Initial gaussian param (for PendingRay)
-    isGaussian?: boolean; // Flag to force Gaussian rendering (Polygon vs Polyline)
+    renderAsGaussian?: boolean; // Flag to force Gaussian rendering (Polygon vs Polyline)
     gaussianParamsList: GaussianParams[]; // Parameters for each segment (length = path.length - 1)
 }
 
@@ -82,6 +82,7 @@ export interface PendingRay {
     bounces: number;
     polarization: JonesVector;
     gaussian: GaussianParams; // Now required or we handle optional? Raytracer assumes it exists.
-    isGaussian?: boolean;
+    renderAsGaussian?: boolean;
 }
 
+// Force re-index

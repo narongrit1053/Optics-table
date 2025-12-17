@@ -1,4 +1,4 @@
-import { OpticalComponent, Ray, Vector2D, Complex, JonesVector, GaussianParams } from './types';
+import { OpticalComponent, Ray, Vector2D, Complex, JonesVector, GaussianParams, PendingRay } from './types';
 
 
 // Distance the ray travels if it hits nothing
@@ -431,15 +431,7 @@ const intersectRayCircle = (rayOrigin: Vector2D, rayDir: Vector2D, center: Vecto
 
 // --- Tracer Structures ---
 
-interface PendingRay {
-    origin: Vector2D;
-    dir: Vector2D;
-    intensity: number;
-    color: string;
-    bounces: number;
-    polarization: JonesVector; // Jones Vector
-    gaussian: GaussianParams; // Gaussian params at origin
-}
+
 
 interface TraceResult {
     visualRay: Ray;
@@ -822,7 +814,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
 
@@ -836,7 +828,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
                 break;
@@ -855,7 +847,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
 
@@ -876,7 +868,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
                 break;
@@ -951,7 +943,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
                 break;
@@ -980,7 +972,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: transPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
 
@@ -1003,7 +995,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: reflPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
 
@@ -1113,7 +1105,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
 
@@ -1128,7 +1120,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                         bounces: pending.bounces + 1,
                         polarization: currentPol,
                         gaussian: currentGaussian,
-                        isGaussian: pending.isGaussian
+                        renderAsGaussian: pending.renderAsGaussian
                     });
                 }
                 break;
@@ -1149,8 +1141,8 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
             color: pending.color,
             path: path,
             polarization: pending.polarization,
-            gaussianParamsList: pending.isGaussian ? gaussianList : [], // Only populate if Gaussian
-            isGaussian: pending.isGaussian
+            gaussianParamsList: pending.renderAsGaussian ? gaussianList : [], // Only populate if Gaussian
+            renderAsGaussian: pending.renderAsGaussian
         },
         nextRays,
         hits,
@@ -1234,11 +1226,9 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
                         intensity: realIntensity,
                         color: baseColor,
                         bounces: 0,
-                        bounces: 0,
-                        bounces: 0,
                         polarization,
                         gaussian: initialGaussian,
-                        isGaussian: false // Render as simple lines, not envelopes
+                        renderAsGaussian: false // Render as simple lines, not envelopes
                     });
                 }
             });
@@ -1262,11 +1252,9 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
                     intensity: coreIntensity,
                     color: baseColor,
                     bounces: 0,
-                    color: baseColor,
-                    bounces: 0,
                     polarization,
                     gaussian: initialGaussian,
-                    isGaussian: false
+                    renderAsGaussian: false
                 });
             }
 
@@ -1278,11 +1266,9 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
                     intensity: sideIntensity,
                     color: baseColor,
                     bounces: 0,
-                    color: baseColor,
-                    bounces: 0,
                     polarization,
                     gaussian: initialGaussian,
-                    isGaussian: false
+                    renderAsGaussian: false
                 });
             }
 
@@ -1294,11 +1280,9 @@ export const calculateRays = (components: OpticalComponent[]): { rays: Ray[], hi
                     intensity: sideIntensity,
                     color: baseColor,
                     bounces: 0,
-                    color: baseColor,
-                    bounces: 0,
                     polarization,
                     gaussian: initialGaussian,
-                    isGaussian: false
+                    renderAsGaussian: false
                 });
             }
         }
