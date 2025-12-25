@@ -146,6 +146,18 @@ function App() {
     }
   }, [selectedCompId, history.present, updateComponents]);
 
+  const toggleLockSelected = useCallback(() => {
+    if (selectedCompId) {
+      const newComps = history.present.map(c => {
+        if (c.id === selectedCompId) {
+          return { ...c, locked: !c.locked };
+        }
+        return c;
+      });
+      updateComponents(newComps, true);
+    }
+  }, [selectedCompId, history.present, updateComponents]);
+
   // --- Keyboard Shortcuts ---
 
   const addComponent = (type) => {
@@ -204,6 +216,10 @@ function App() {
             e.preventDefault();
             paste();
             break;
+          case 'l':
+            e.preventDefault();
+            toggleLockSelected();
+            break;
           default:
             break;
         }
@@ -219,7 +235,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copy, paste, deleteSelected, rotateSelected]);
+  }, [undo, redo, copy, paste, deleteSelected, rotateSelected, toggleLockSelected]);
 
 
   // Wrapper for child components to use setComponents interface but wired to history
@@ -239,26 +255,28 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Main Canvas - Underneath */}
-      <div className="main-stage-wrapper">
-        <OpticalTable
-          components={components}
-          setComponents={setComponentsAdapter}
-          onSelect={handleSelect}
-          saveCheckpoint={saveCheckpoint}
-        />
-      </div>
+      {!showSearch && (
+        <div className="layout-container">
+          <Sidebar
+            setComponents={setComponentsAdapter}
+            toggleTheme={toggleTheme}
+            theme={theme}
+          />
+          <div className="main-stage-wrapper">
+            <OpticalTable
+              components={components}
+              setComponents={setComponentsAdapter} // Pass adapter
+              onSelect={handleSelect}
+              saveCheckpoint={saveCheckpoint}
+            />
+          </div>
+        </div>
+      )}
 
-      {/* Overlays - On top */}
-      <Sidebar
-        setComponents={(fn) => setComponentsAdapter(fn, true)}
-        toggleTheme={toggleTheme}
-        theme={theme}
-      />
       <PropertiesPanel
         selectedCompId={selectedCompId}
         components={components}
-        setComponents={setComponentsAdapter}
+        setComponents={setComponentsAdapter} // Pass adapter
         saveCheckpoint={saveCheckpoint}
       />
       <ComponentSearch

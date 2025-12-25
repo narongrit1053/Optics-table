@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { tools } from '../data/tools';
 
 const Sidebar = ({ setComponents, toggleTheme, theme }) => {
-    const [collapsed, setCollapsed] = useState(false);
+    // Fixed sidebar (not collapsible)
 
     const addComponent = (type) => {
         const tool = tools.find(t => t.id === type);
@@ -27,7 +27,7 @@ const Sidebar = ({ setComponents, toggleTheme, theme }) => {
     };
 
     return (
-        <div className={`overlay-panel sidebar-overlay ${collapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-panel">
             <div className="panel-header">
                 <span className="panel-title header" style={{ margin: 0 }}>Components</span>
                 <button
@@ -37,13 +37,6 @@ const Sidebar = ({ setComponents, toggleTheme, theme }) => {
                     style={{ marginRight: '8px' }}
                 >
                     {theme === 'light' ? '🌙' : '☀️'}
-                </button>
-                <button
-                    className="collapse-btn"
-                    onClick={() => setCollapsed(!collapsed)}
-                    title={collapsed ? "Expand" : "Collapse"}
-                >
-                    {collapsed ? '▶' : '◀'}
                 </button>
             </div>
 
@@ -67,19 +60,9 @@ const Sidebar = ({ setComponents, toggleTheme, theme }) => {
                     • <b>Drag</b> items to add<br />
                     • <b>Click</b> items to add<br />
                     • <b>Right-click</b> to pan<br />
-                    • <b>Scroll</b> to zoom
+                    • <b>Scroll</b> to zoom (Shift+Scroll to pan)
                 </div>
             </div>
-
-            {collapsed && (
-                <div
-                    className="collapsed-label"
-                    onClick={() => setCollapsed(false)}
-                    style={{ cursor: 'pointer' }}
-                >
-                    COMPONENTS
-                </div>
-            )}
         </div>
     );
 };

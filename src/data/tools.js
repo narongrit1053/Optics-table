@@ -14,5 +14,6 @@ export const tools = [
     { id: 'aom', label: 'AOM', icon: '🔮', params: { efficiency: 0.5, deviation: 5 } },
     { id: 'fiber', label: 'Fiber Coupler', icon: '🧶', params: { acceptanceAngle: 15 } },
     { id: 'text', label: 'Text Label', icon: '📝', params: { content: 'Label', fontSize: 16, textColor: '#ffffff' } },
+    { id: 'vaporcell', label: 'Vapor Cell', icon: '🧪', params: { shape: 'cylindrical', element: 'Rb-87' } },
     { id: 'breadboard', label: 'Breadboard', icon: '▦', params: {} }
 ];

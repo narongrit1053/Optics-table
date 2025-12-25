@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateRays } from '../engine/raytracer';
 import { add, sub, mul, mag, normalize, getGaussianWidth } from '../engine/mathUtils';
@@ -72,13 +72,62 @@ const generateBeamPolygon = (ray) => {
 };
 
 const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) => {
-    const [viewBox, setViewBox] = useState({ x: -1000, y: -500, w: 2000, h: 1000 });
+    // --- Viewport State ---
+    // viewBox: { x, y, w, h }
+    // x, y: Top-left corner in world coordinates
+    // w, h: Width/Height in world coordinates
+    const [viewBox, setViewBox] = useState({ x: -100, y: -100, w: 1000, h: 600 });
+    const svgRef = useRef(null);
+    const lastMousePos = useRef({ x: 0, y: 0 });
+
+    // Track current scale (screen pixels per world unit) to preserve it during resize
+    const scaleRef = useRef(1.0);
+
+    // Update scaleRef whenever viewBox changes (in render or effect)
+    useEffect(() => {
+        if (svgRef.current) {
+            const clientW = svgRef.current.clientWidth;
+            if (clientW > 0 && viewBox.w > 0) {
+                scaleRef.current = clientW / viewBox.w;
+            }
+        }
+    }, [viewBox.w, svgRef.current]); // Depend on viewBox.w and svgRef.current
+
+    // Resize Observer to handle container size changes (e.g. sidebar collapse/expand or window resize)
+    useEffect(() => {
+        const el = svgRef.current;
+        if (!el) return;
+
+        const observer = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect;
+                if (width === 0 || height === 0) continue;
+
+                // Maintain current zoom level (scaleRef)
+                // newViewW = newClientW / scale
+                // newViewH = newClientH / scale
+
+                setViewBox(prev => {
+                    // Start with current scale, or fallback
+                    const currentScale = scaleRef.current || 1;
+                    const newW = width / currentScale;
+                    const newH = height / currentScale;
+
+                    // Pin Top-Left (x, y) - content stays stable relative to top-left
+                    return { ...prev, w: newW, h: newH };
+                });
+            }
+        });
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [svgRef.current]); // Depend on svgRef.current
+
     const [isPanning, setIsPanning] = useState(false);
     const [draggedCompId, setDraggedCompId] = useState(null);
     // const [snapToGrid, setSnapToGrid] = useState(true); // Removed
 
-    const lastMousePos = useRef({ x: 0, y: 0 });
-    const svgRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     // Calculate Rays
     const { rays, hits, hitColors } = useMemo(() => {
@@ -142,6 +191,43 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
         document.body.removeChild(link);
     };
 
+    const saveSetup = () => {
+        const json = JSON.stringify(components, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `optical-setup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const loadSetup = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (Array.isArray(data)) {
+                    setComponents(data, true); // Commit to history
+                } else {
+                    alert('Invalid setup file format.');
+                }
+            } catch (err) {
+                console.error('Error parsing setup file:', err);
+                alert('Failed to load setup file.');
+            }
+        };
+        reader.readAsText(file);
+
+        // Reset input so same file can be selected again
+        e.target.value = '';
+    };
+
     const handleMouseDown = (e) => {
         // If clicking on background (not a component), start panning
         e.preventDefault(); // Prevent text selection on background drag
@@ -176,8 +262,24 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
 
                     const shouldSnap = e.ctrlKey || e.metaKey;
                     if (shouldSnap) {
-                        const snappedX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
-                        const snappedY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
+                        // Default snap: Center to Grid
+                        let snapOffsetX = 0;
+                        let snapOffsetY = 0;
+
+                        // Breadboard snap: Corner to Grid (Bolt position)
+                        // Bolt at nominal corner = Center +/- NominalDim/2
+                        // Snap condition: (Center - Offset) % Grid == 0
+                        if (c.type === 'breadboard') {
+                            const L_nominal = toPixels(c.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.breadboard.length);
+                            const W_nominal = toPixels(c.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.breadboard.width);
+                            snapOffsetX = L_nominal / 2;
+                            snapOffsetY = W_nominal / 2;
+                        }
+
+                        // Formula: Round((Pos - Offset) / Grid) * Grid + Offset
+                        const snappedX = Math.round((rawX - snapOffsetX) / GRID_SIZE) * GRID_SIZE + snapOffsetX;
+                        const snappedY = Math.round((rawY - snapOffsetY) / GRID_SIZE) * GRID_SIZE + snapOffsetY;
+
                         return { ...c, position: { x: snappedX, y: snappedY } };
                     } else {
                         return { ...c, position: { x: rawX, y: rawY } };
@@ -219,8 +321,19 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
         };
 
         const shouldSnap = e.ctrlKey || e.metaKey;
-        const finalX = shouldSnap ? Math.round(svgPoint.x / GRID_SIZE) * GRID_SIZE : svgPoint.x;
-        const finalY = shouldSnap ? Math.round(svgPoint.y / GRID_SIZE) * GRID_SIZE : svgPoint.y;
+
+        // Calculate Snap Offset for Drop
+        let snapOffsetX = 0;
+        let snapOffsetY = 0;
+        if (type === 'breadboard') {
+            const L_nominal = toPixels(defaultParams.physicalDim.length);
+            const W_nominal = toPixels(defaultParams.physicalDim.width);
+            snapOffsetX = L_nominal / 2;
+            snapOffsetY = W_nominal / 2;
+        }
+
+        const finalX = shouldSnap ? Math.round((svgPoint.x - snapOffsetX) / GRID_SIZE) * GRID_SIZE + snapOffsetX : svgPoint.x;
+        const finalY = shouldSnap ? Math.round((svgPoint.y - snapOffsetY) / GRID_SIZE) * GRID_SIZE + snapOffsetY : svgPoint.y;
 
         const newComp = {
             id: uuidv4(),
@@ -241,9 +354,14 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
     const handleCompMouseDown = (e, id) => {
         e.stopPropagation(); // Stop background pan
         e.preventDefault();  // Stop native drag/select
+
+        onSelect(id); // Always select on click
+
+        const comp = components.find(c => c.id === id);
+        if (comp && comp.locked) return; // Prevent drag if locked
+
         saveCheckpoint();    // Save state before drag starts
         setDraggedCompId(id);
-        onSelect(id);
         lastMousePos.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -270,33 +388,37 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
             }
         });
 
-        // Fallback for weird data
+        // Default to a reasonable startup view if no components
         if (!isFinite(minX)) {
-            setViewBox({ x: -1000, y: -500, w: DEFAULT_W, h: DEFAULT_H });
-            return;
+            minX = -400; maxX = 400; minY = -300; maxY = 300;
         }
 
-        const contentW = maxX - minX;
-        const contentH = maxY - minY;
+        const contentW = Math.max(100, maxX - minX); // Ensure non-zero
+        const contentH = Math.max(100, maxY - minY);
 
-        // "Boundary set as 80% of the screen"
-        // Target dimension = Content dimension / 0.8
-        const autoW = contentW / SCREEN_COVERAGE;
-        const autoH = contentH / SCREEN_COVERAGE;
+        // Get actual screen size to ensure aspect ratio match
+        const clientW = svgRef.current?.clientWidth || 1000;
+        const clientH = svgRef.current?.clientHeight || 600;
 
-        // "Minimum is default reset view"
-        const targetW = Math.max(DEFAULT_W, autoW);
-        const targetH = Math.max(DEFAULT_H, autoH);
+        // Calculate scale to fit content with padding (80% coverage)
+        // scale = ScreenPixels / WorldUnits
+        const scaleX = clientW / (contentW / SCREEN_COVERAGE);
+        const scaleY = clientH / (contentH / SCREEN_COVERAGE);
+        const scale = Math.min(scaleX, scaleY); // Fit entirely
 
-        // Center on the content
+        // Calculate new World W/H based on this scale to match screen Aspect Ratio
+        // This prevents "slice" from cropping edges
+        const newW = clientW / scale;
+        const newH = clientH / scale;
+
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 
         setViewBox({
-            x: centerX - targetW / 2,
-            y: centerY - targetH / 2,
-            w: targetW,
-            h: targetH
+            x: centerX - newW / 2,
+            y: centerY - newH / 2,
+            w: newW,
+            h: newH
         });
     };
 
@@ -326,7 +448,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                 onMouseLeave={handleMouseUp}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                preserveAspectRatio="xMidYMid slice"
+                preserveAspectRatio="none"
                 style={{ touchAction: 'none' }} // Prevent touch scrolling gestures
             >
                 <defs>
@@ -337,6 +459,19 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         <rect width="200" height="200" fill="url(#grid)" />
                         <path d="M 200 0 L 0 0 0 200" fill="none" stroke="var(--grid-color-large)" strokeWidth="2" />
                     </pattern>
+
+                    {/* Breadboard Pattern (M6 @ 12.5mm, M4 @ 6.25mm grid - Staggered/Center-Only) */}
+                    <pattern id="breadboard-dense-grid" x="0" y="0" width={toPixels(12.5)} height={toPixels(12.5)} patternUnits="userSpaceOnUse">
+                        {/* M6 Holes at Corners (Origin) - Spacing 12.5mm */}
+                        <circle cx={toPixels(0)} cy={toPixels(0)} r={toPixels(3)} fill="#111" opacity="0.6" />
+                        <circle cx={toPixels(12.5)} cy={toPixels(0)} r={toPixels(3)} fill="#111" opacity="0.6" />
+                        <circle cx={toPixels(0)} cy={toPixels(12.5)} r={toPixels(3)} fill="#111" opacity="0.6" />
+                        <circle cx={toPixels(12.5)} cy={toPixels(12.5)} r={toPixels(3)} fill="#111" opacity="0.6" />
+
+                        {/* M4 Hole at Center (Offset 6.25mm) - Spacing effectively 12.5mm staggered */}
+                        <circle cx={toPixels(6.25)} cy={toPixels(6.25)} r={toPixels(2)} fill="#111" opacity="0.5" />
+                    </pattern>
+
                     {/* Laser Glow Filter - Tighter glow to prevent disappearing lines */}
                     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                         <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
@@ -361,9 +496,18 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                 <path className="no-export" d="M -10 0 L 10 0 M 0 -10 L 0 10" stroke="#00ff9d" strokeWidth="2" strokeOpacity="0.5" />
 
                 {/* Grid Labels (Coordinate System) */}
-                {/* Grid Labels (Coordinate System) */}
                 <g className="no-export" style={{ pointerEvents: 'none', userSelect: 'none' }}>
                     {(() => {
+                        // Adaptive Scale Calculation
+                        // We need the ratio of ViewBox Width (World Units) to Client Width (Screen Pixels)
+                        const clientW = svgRef.current?.clientWidth || 1000;
+                        const pixelScale = viewBox.w / clientW;
+
+                        // Adaptive Font Size (e.g. 12px on screen)
+                        const fontSize = 12 * pixelScale;
+                        const xOffset = 15 * pixelScale;
+                        const yOffset = 25 * pixelScale;
+
                         const majorGridSize = 200; // 125mm
                         const startX = Math.floor(viewBox.x / majorGridSize) * majorGridSize;
                         const endX = Math.ceil((viewBox.x + viewBox.w) / majorGridSize) * majorGridSize;
@@ -371,35 +515,37 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         const endY = Math.ceil((viewBox.y + viewBox.h) / majorGridSize) * majorGridSize;
 
                         const labels = [];
-                        // X Labels
+                        // X Labels (Top edge)
                         for (let x = startX; x <= endX; x += majorGridSize) {
                             if (x === 0) continue; // Skip center
                             labels.push(
                                 <text
                                     key={`x-${x}`}
                                     x={x}
-                                    y={viewBox.y + 20}
+                                    y={viewBox.y + yOffset}
                                     fill="var(--text-dim)"
-                                    fontSize="12"
+                                    fontSize={fontSize}
                                     textAnchor="middle"
-                                    opacity="0.6"
+                                    opacity="0.8"
+                                    style={{ textShadow: `0 0 ${4 * pixelScale}px rgba(0,0,0,0.5)` }}
                                 >
                                     {Math.round(toMM(x))} mm
                                 </text>
                             );
                         }
-                        // Y Labels
+                        // Y Labels (Left edge)
                         for (let y = startY; y <= endY; y += majorGridSize) {
                             if (y === 0) continue; // Skip center
                             labels.push(
                                 <text
                                     key={`y-${y}`}
-                                    x={viewBox.x + 10}
-                                    y={y + 4}
+                                    x={viewBox.x + xOffset}
+                                    y={y + (4 * pixelScale)}
                                     fill="var(--text-dim)"
-                                    fontSize="12"
+                                    fontSize={fontSize}
                                     textAnchor="start"
-                                    opacity="0.6"
+                                    opacity="0.8"
+                                    style={{ textShadow: `0 0 ${4 * pixelScale}px rgba(0,0,0,0.5)` }}
                                 >
                                     {Math.round(toMM(y))} mm
                                 </text>
@@ -419,45 +565,48 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         className="component-group"
                     >
                         {(() => {
-                            const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.breadboard.length);
-                            const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.breadboard.width);
-                            const spacing = toPixels(25); // 25mm spacing
+                            // Nominal Dimensions (e.g. 500x500) - Corresponds to Mounting Hole Centers
+                            const L_nominal = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.breadboard.length);
+                            const W_nominal = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.breadboard.width);
 
-                            // Generate holes
-                            const holes = [];
-                            const cols = Math.floor(L / spacing);
-                            const rows = Math.floor(W / spacing);
-
-                            // Center the grid
-                            const offsetX = (L - (cols * spacing)) / 2;
-                            const offsetY = (W - (rows * spacing)) / 2;
-
-                            for (let i = 0; i < cols; i++) {
-                                for (let j = 0; j < rows; j++) {
-                                    holes.push(
-                                        <circle
-                                            key={`${i}-${j}`}
-                                            cx={-L / 2 + offsetX + i * spacing + spacing / 2}
-                                            cy={-W / 2 + offsetY + j * spacing + spacing / 2}
-                                            r="4"
-                                            fill="#111"
-                                            opacity="0.5"
-                                        />
-                                    );
-                                }
-                            }
+                            // Actual Dimensions (Expanded by 12.5mm each side -> 25mm total)
+                            // "overall breadboard if 500x500 will be 525x525"
+                            const expansion = toPixels(25);
+                            const L_actual = L_nominal + expansion;
+                            const W_actual = W_nominal + expansion;
 
                             return (
                                 <>
-                                    {/* Plate Body */}
-                                    <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#282828" stroke="#444" strokeWidth="2" rx="4" />
-                                    {/* Holes */}
-                                    {holes}
-                                    {/* Screw corners (Visual) */}
-                                    <circle cx={-L / 2 + 12} cy={-W / 2 + 12} r="6" fill="#444" />
-                                    <circle cx={L / 2 - 12} cy={-W / 2 + 12} r="6" fill="#444" />
-                                    <circle cx={-L / 2 + 12} cy={W / 2 - 12} r="6" fill="#444" />
-                                    <circle cx={L / 2 - 12} cy={W / 2 - 12} r="6" fill="#444" />
+                                    {/* Plate Body (Dark) */}
+                                    <rect
+                                        x={-L_actual / 2}
+                                        y={-W_actual / 2}
+                                        width={L_actual}
+                                        height={W_actual}
+                                        fill="#282828"
+                                        stroke="#444"
+                                        strokeWidth="2"
+                                        rx="4"
+                                    />
+
+                                    {/* Hole Pattern */}
+                                    {/* M6 Grid at edge (e.g. 250) aligns with Nominal spec. */}
+                                    {/* We extend the render rect slightly (4mm > 3mm radius) to ensure edge holes are fully round circles, not clipped D-shapes. */}
+                                    {/* Physical board is expanded (525mm) so we have space. */}
+                                    <rect
+                                        x={-L_nominal / 2 - toPixels(4)}
+                                        y={-W_nominal / 2 - toPixels(4)}
+                                        width={L_nominal + toPixels(8)}
+                                        height={W_nominal + toPixels(8)}
+                                        fill="url(#breadboard-dense-grid)"
+                                        stroke="none"
+                                    />
+
+                                    {/* Table Mounting Holes (M6 Clearance - 4 Corners) */}
+                                    <circle cx={-L_nominal / 2} cy={-W_nominal / 2} r={toPixels(3.5)} fill="#222" stroke="#555" strokeWidth="2" />
+                                    <circle cx={L_nominal / 2} cy={-W_nominal / 2} r={toPixels(3.5)} fill="#222" stroke="#555" strokeWidth="2" />
+                                    <circle cx={-L_nominal / 2} cy={W_nominal / 2} r={toPixels(3.5)} fill="#222" stroke="#555" strokeWidth="2" />
+                                    <circle cx={L_nominal / 2} cy={W_nominal / 2} r={toPixels(3.5)} fill="#222" stroke="#555" strokeWidth="2" />
                                 </>
                             );
                         })()}
@@ -570,7 +719,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                     return (
                                         <>
                                             {/* Hit Area (Transparent) */}
-                                            <rect x={-T * 2} y={-R} width={T * 4} height={H} fill="transparent" stroke="none" />
+                                            <rect x={-T / 2} y={-R} width={T} height={H} fill="transparent" stroke="none" />
 
                                             {/* Lens Glass Body */}
                                             {(!comp.params?.lensShape || comp.params.lensShape === 'convex') && (
@@ -661,6 +810,19 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                                             <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#222" stroke="#555" strokeWidth="2" />
                                             {/* Active Area */}
                                             <rect x={-L / 2} y={-W / 2 + 2} width={L > 4 ? L - 4 : L} height={W > 4 ? W - 4 : W} fill="#111" />
+
+                                            {/* Decorative Power Meter Circles (Visual only) */}
+                                            {/* Top Circle */}
+                                            <circle cx={0} cy={-W / 4} r={Math.min(L, W) * 0.3} fill="none" stroke="#444" strokeWidth="2" />
+                                            <circle cx={0} cy={-W / 4} r={Math.min(L, W) * 0.2} fill="none" stroke="#333" strokeWidth="1" />
+                                            <line x1={0} y1={-W / 4 - 4} x2={0} y2={-W / 4 + 4} stroke="#444" strokeWidth="1" />
+                                            <line x1={-4} y1={-W / 4} x2={4} y2={-W / 4} stroke="#444" strokeWidth="1" />
+
+                                            {/* Bottom Circle */}
+                                            <circle cx={0} cy={W / 4} r={Math.min(L, W) * 0.3} fill="none" stroke="#444" strokeWidth="2" />
+                                            <circle cx={0} cy={W / 4} r={Math.min(L, W) * 0.2} fill="none" stroke="#333" strokeWidth="1" />
+                                            <line x1={0} y1={W / 4 - 4} x2={0} y2={W / 4 + 4} stroke="#444" strokeWidth="1" />
+                                            <line x1={-4} y1={W / 4} x2={4} y2={W / 4} stroke="#444" strokeWidth="1" />
                                             {/* Readout Overlay (always horizontal) - conditional */}
                                             {(comp.params?.showReadout ?? true) && (
                                                 <g transform={`rotate(${-comp.rotation}) translate(${W / 2 + 20}, 0)`}>
@@ -1014,46 +1176,69 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
 
 
 
+                        {comp.type === 'vaporcell' && (
+                            <g>
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.vaporcell.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.vaporcell.width);
+                                    // Height would be W for cylinder/box usually match.
+                                    const isCylindrical = (comp.params?.shape || 'cylindrical') === 'cylindrical';
+                                    const element = comp.params?.element || 'Rb-87';
+
+                                    // Color based on element? (Optional)
+                                    // Rb: reddish/violet, Cs: orangey/gold. Just subtle tint.
+                                    const tint = element.includes('Rb') ? 'rgba(200, 100, 200, 0.2)' :
+                                        element.includes('Cs') ? 'rgba(200, 150, 50, 0.2)' :
+                                            'rgba(200, 220, 255, 0.2)';
+
+                                    return (
+                                        <>
+                                            {isCylindrical ? (
+                                                <>
+                                                    {/* Tube Body */}
+                                                    <rect x={-L / 2} y={-W / 2} width={L} height={W} fill={tint} stroke="rgba(200,220,255,0.6)" strokeWidth="1" />
+                                                    {/* End Caps / Windows (Ellipses for simple 2D cylinder look, or just lines) */}
+                                                    <line x1={-L / 2} y1={-W / 2} x2={-L / 2} y2={W / 2} stroke="rgba(200,220,255,0.8)" strokeWidth="2" />
+                                                    <line x1={L / 2} y1={-W / 2} x2={L / 2} y2={W / 2} stroke="rgba(200,220,255,0.8)" strokeWidth="2" />
+                                                    {/* Highlights */}
+                                                    <line x1={-L / 2 + 5} y1={-W / 4} x2={L / 2 - 5} y2={-W / 4} stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Box Body */}
+                                                    <rect x={-L / 2} y={-W / 2} width={L} height={W} fill={tint} stroke="rgba(200,220,255,0.8)" strokeWidth="1" />
+                                                    {/* Inner volume hint */}
+                                                    <rect x={-L / 2 + 4} y={-W / 2 + 4} width={L - 8} height={W - 8} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                                                </>
+                                            )}
+
+                                            {/* Element Label */}
+                                            <text
+                                                x="0"
+                                                y="4"
+                                                fontSize="12"
+                                                fill="rgba(255,255,255,0.8)"
+                                                textAnchor="middle"
+                                                fontWeight="bold"
+                                                style={{ userSelect: 'none', pointerEvents: 'none', textShadow: '0 0 2px black' }}
+                                            >
+                                                {element}
+                                            </text>
+                                        </>
+                                    );
+                                })()}
+                            </g>
+                        )}
+
                         {/* Placeholder for others */}
-                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector', 'breadboard'].includes(comp.type) && (
+                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector', 'breadboard', 'vaporcell'].includes(comp.type) && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
+
                     </g>
                 ))}
 
             </svg>
-
-            {/* Scale Bar Indicator */}
-            <div style={{
-                position: 'absolute',
-                bottom: '80px',
-                left: '20px',
-                background: 'rgba(20, 20, 26, 0.6)',
-                backdropFilter: 'blur(4px)',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                border: '1px solid var(--border)',
-                color: 'var(--text-dim)',
-                fontSize: '0.8rem',
-                pointerEvents: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                zIndex: 10
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                        width: '40px', // One grid unit
-                        height: '2px',
-                        background: 'var(--text-dim)',
-                        position: 'relative'
-                    }}>
-                        <div style={{ position: 'absolute', left: 0, top: '-4px', bottom: '-4px', width: '1px', background: 'var(--text-dim)' }} />
-                        <div style={{ position: 'absolute', right: 0, top: '-4px', bottom: '-4px', width: '1px', background: 'var(--text-dim)' }} />
-                    </div>
-                    <span>25 mm</span>
-                </div>
-            </div>
 
             {/* View Controls */}
             < div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px' }}>
@@ -1079,6 +1264,61 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                     <span style={{ fontSize: '1.1em' }}>💾</span>
                     Save SVG
                 </button>
+
+                <button
+                    onClick={saveSetup}
+                    style={{
+                        background: 'rgba(20, 20, 26, 0.8)',
+                        border: '1px solid #333',
+                        color: '#e0e0e0',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(4px)',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <span style={{ fontSize: '1.1em' }}>📄</span>
+                    Save JSON
+                </button>
+
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                        background: 'rgba(20, 20, 26, 0.8)',
+                        border: '1px solid #333',
+                        color: '#e0e0e0',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(4px)',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <span style={{ fontSize: '1.1em' }}>📂</span>
+                    Load JSON
+                </button>
+
+                {/* Hidden File Input */}
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={loadSetup}
+                    accept=".json"
+                    style={{ display: 'none' }}
+                />
 
                 <button
                     onClick={resetView}

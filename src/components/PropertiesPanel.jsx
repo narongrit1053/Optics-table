@@ -70,6 +70,12 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
         setComponents(prev => prev.filter(c => c.id !== selectedCompId), true); // Commit delete
     };
 
+    const toggleLock = () => {
+        setComponents(prev => prev.map(c =>
+            c.id === selectedCompId ? { ...c, locked: !c.locked } : c
+        ), true);
+    };
+
     if (!selectedComp) {
         return (
             <div className={`overlay-panel properties-overlay ${collapsed ? 'collapsed' : ''}`}>
@@ -107,6 +113,19 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
             </div>
 
             <div className="overlay-content">
+                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px' }}>
+                    <label style={{ fontSize: '0.9em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <input
+                            type="checkbox"
+                            checked={selectedComp.locked || false}
+                            onChange={toggleLock}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        Lock Position
+                    </label>
+                    <span style={{ fontSize: '0.7em', color: '#666', border: '1px solid #444', borderRadius: '3px', padding: '1px 4px' }}>Ctrl+L</span>
+                </div>
+
                 <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Rotation</label>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px' }}>
@@ -703,6 +722,48 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                                 {selectedComp.params?.deviation ?? 5}°
                             </span>
                         </div>
+                    </div>
+                )}
+
+                {selectedComp.type === 'vaporcell' && (
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Element</label>
+                        <select
+                            value={selectedComp.params?.element || 'Rb-87'}
+                            onChange={(e) => updateParam('element', e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                border: '1px solid var(--border)',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                marginBottom: '10px'
+                            }}
+                        >
+                            <option value="Rb-87">Rubidium-87</option>
+                            <option value="Rb-85">Rubidium-85</option>
+                            <option value="Cs-133">Cesium-133</option>
+                            <option value="K-40">Potassium-40</option>
+                            <option value="Na-23">Sodium-23</option>
+                        </select>
+
+                        <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px' }}>Shape</label>
+                        <select
+                            value={selectedComp.params?.shape || 'cylindrical'}
+                            onChange={(e) => updateParam('shape', e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                border: '1px solid var(--border)',
+                                padding: '4px',
+                                borderRadius: '4px'
+                            }}
+                        >
+                            <option value="cylindrical">Cylinder (Tube)</option>
+                            <option value="box">Rectangular Box (Cell)</option>
+                        </select>
                     </div>
                 )}
 
