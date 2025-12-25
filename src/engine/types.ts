@@ -13,7 +13,7 @@ export type JonesVector = {
     ey: Complex;
 };
 
-export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris' | 'cavity' | 'text' | 'hwp' | 'qwp' | 'polarizer' | 'pbs' | 'poldetector';
+export type ComponentType = 'laser' | 'mirror' | 'lens' | 'beamsplitter' | 'detector' | 'aom' | 'fiber' | 'blocker' | 'iris' | 'cavity' | 'text' | 'hwp' | 'qwp' | 'polarizer' | 'pbs' | 'poldetector' | 'breadboard';
 
 export interface OpticalComponent {
     id: string;
@@ -52,6 +52,12 @@ export interface OpticalComponent {
         fastAxis?: number; // Waveplate fast axis angle (degrees)
         polarizerAxis?: number; // Polarizer transmission axis (degrees)
         pbsAxis?: number; // PBS splitting axis (degrees, 0=H transmitted)
+        catalogId?: string; // ID from Thorlabs catalog (e.g., 'KM100')
+        physicalDim?: {
+            length: number;
+            width: number;
+            height: number;
+        };
     };
 }
 

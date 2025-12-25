@@ -1,5 +1,6 @@
 import { OpticalComponent, Ray, Vector2D, Complex, JonesVector, GaussianParams, PendingRay } from './types';
 import { add, sub, mul, dot, mag, normalize, rotatePoint } from './mathUtils';
+import { toPixels, DEFAULT_DIMENSIONS_MM } from './units';
 
 
 // Distance the ray travels if it hits nothing
@@ -153,7 +154,7 @@ const lensTransformGaussian = (params: GaussianParams, f: number): GaussianParam
 
 // Mirror: Line Segment
 const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 100;
+    const width = toPixels(mirror.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.mirror.width);
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -169,7 +170,7 @@ const getMirrorSegment = (mirror: OpticalComponent): { p1: Vector2D, p2: Vector2
 
 // Detector
 const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 80;
+    const width = toPixels(det.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.detector.width);
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -185,7 +186,7 @@ const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D
 
 // Iris - dedicated segment with width matching visual (diameter 64 = 2 * radius 32)
 const getIrisSegment = (iris: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 64; // Match visual circle radius 32 * 2
+    const width = toPixels(iris.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.iris.width);
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -201,11 +202,23 @@ const getIrisSegment = (iris: OpticalComponent): { p1: Vector2D, p2: Vector2D, n
 
 // Fiber Coupler - segment for the coupling lens/aperture
 const getFiberSegment = (fiber: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 60; // Match visual coupler body height
+    // Width is height in 2D top-down view
+    const width = toPixels(fiber.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.fiber.width);
     const halfWidth = width / 2;
-    // Fiber lens is at x=-16 in local coordinates (front of coupler)
-    const p1Local = { x: -16, y: -halfWidth };
-    const p2Local = { x: -16, y: halfWidth };
+    // Fiber lens offset is roughly -length/2? Or we keep fixed for now?
+    // Visual used to be: body 32x60, lens radius 12 at x=-16.
+    // If we use metric: 20x10x10. Width=10. Length=20.
+    // Let's assume lens is at front face.
+    const length = toPixels(fiber.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.fiber.length);
+    const xOffset = -length / 2; // Front face?
+
+    // For now, let's keep the hardcoded relative offset because physics depends on exact hit point relative to visuals
+    // But we should scale it.
+    // If old was 32 wide, new is 20mm (32px).
+    // Let's stick to using the `width` param for the hit segment size.
+
+    const p1Local = { x: xOffset, y: -halfWidth };
+    const p2Local = { x: xOffset, y: halfWidth };
 
     const p1 = rotatePoint({ x: fiber.position.x + p1Local.x, y: fiber.position.y + p1Local.y }, fiber.position, fiber.rotation);
     const p2 = rotatePoint({ x: fiber.position.x + p2Local.x, y: fiber.position.y + p2Local.y }, fiber.position, fiber.rotation);
@@ -220,8 +233,9 @@ const getFiberSegment = (fiber: OpticalComponent): { p1: Vector2D, p2: Vector2D,
 
 // AOM: Rectangular Crystal (Interaction Line)
 const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 80;
-    const halfWidth = width / 2;
+    // Use width for the transverse interaction size (matching visual height)
+    const faceWidth = toPixels(aom.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.aom.width);
+    const halfWidth = faceWidth / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
 
@@ -236,8 +250,15 @@ const getAOMSegment = (aom: OpticalComponent): { p1: Vector2D, p2: Vector2D, nor
 
 // Optical Cavity - two parallel mirrors
 const getCavitySegments = (cavity: OpticalComponent): { left: { p1: Vector2D, p2: Vector2D, normal: Vector2D }, right: { p1: Vector2D, p2: Vector2D, normal: Vector2D } } => {
-    const height = 80; // Mirror height
+    const height = toPixels(cavity.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.cavity.width); // Mirror width
     const halfHeight = height / 2;
+    // Cavity Length is a separate param, not physicalDim.length (which is for frame?)
+    // But we might want to sync them. For now, stick to params.cavityLength but scale it?
+    // Wait, cavityLength is in logical units or pixels? 
+    // Currently explicit param `cavityLength`. If user inputs 100, is that mm or px?
+    // Let's assume params are now in MM if they are user-facing?
+    // For this refactor, I won't change the MEANING of `cavityLength` param yet, but I should.
+    // For now, let's assume `cavityLength` is still in pixels from the slider.
     const length = cavity.params?.cavityLength ?? 100;
     const halfLength = length / 2;
 
@@ -266,7 +287,7 @@ const getCavitySegments = (cavity: OpticalComponent): { left: { p1: Vector2D, p2
 
 // Waveplate/Polarizer segment (HWP, QWP, Polarizer)
 const getWaveplateSegment = (wp: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const width = 60; // Waveplate width
+    const width = toPixels(wp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.hwp.width);
     const halfWidth = width / 2;
     const p1Local = { x: 0, y: -halfWidth };
     const p2Local = { x: 0, y: halfWidth };
@@ -282,8 +303,10 @@ const getWaveplateSegment = (wp: OpticalComponent): { p1: Vector2D, p2: Vector2D
 
 // Beam Splitter: Diagonal Line Segment
 const getBeamSplitterSegment = (bs: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
-    const size = 60;
+    const size = toPixels(bs.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.beamsplitter.width);
     const half = size / 2;
+    // Diagonal is from (-half, +half) to (+half, -half)
+    // Wait, visual was: x1="-30" y1="30" x2="30" y2="-30" (Bottom-Left to Top-Right)
     const p1Local = { x: -half, y: half };
     const p2Local = { x: half, y: -half };
 

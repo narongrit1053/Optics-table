@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { DEFAULT_DIMENSIONS_MM } from '../engine/units';
+import { THORLABS_CATALOG } from '../data/thorlabs';
 
 const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckpoint }) => {
     const [collapsed, setCollapsed] = useState(false);
@@ -24,6 +26,44 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
         setComponents(prev => prev.map(c =>
             c.id === selectedCompId ? { ...c, rotation: parseFloat(value) } : c
         ), false);
+    };
+
+    const updatePhysicalDim = (dim, value) => {
+        const val = parseFloat(value);
+        if (isNaN(val)) return;
+        setComponents(prev => prev.map(c => {
+            if (c.id === selectedCompId) {
+                // Get defaults safely
+                const typeDefaults = DEFAULT_DIMENSIONS_MM[c.type] || DEFAULT_DIMENSIONS_MM['mirror']; // Fallback
+                const currentPhysical = c.params?.physicalDim || typeDefaults;
+                return {
+                    ...c,
+                    params: {
+                        ...c.params,
+                        physicalDim: { ...currentPhysical, [dim]: val }
+                    }
+                };
+            }
+            return c;
+        }), false);
+    };
+
+    const applyCatalogModel = (modelId) => {
+        const catalog = THORLABS_CATALOG[selectedComp.type];
+        if (!catalog) return;
+        const item = catalog.find(m => m.id === modelId);
+        if (!item || !item.physicalDim) return; // 'custom' logic handled separately or by doing nothing
+
+        setComponents(prev => prev.map(c =>
+            c.id === selectedCompId ? {
+                ...c,
+                params: {
+                    ...c.params,
+                    catalogId: modelId,
+                    physicalDim: { ...item.physicalDim }
+                }
+            } : c
+        ), true);
     };
 
     const deleteComponent = () => {
@@ -98,6 +138,69 @@ const PropertiesPanel = ({ selectedCompId, components, setComponents, saveCheckp
                         </button>
                     </div>
                 </div>
+
+                {/* Catalog Model Selector */}
+                {THORLABS_CATALOG[selectedComp.type] && (
+                    <div style={{ marginBottom: '1rem', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+                        <label style={{ display: 'block', fontSize: '0.9em', fontWeight: 'bold', marginBottom: '5px' }}>Thorlabs Model</label>
+                        <select
+                            value={selectedComp.params?.catalogId || 'custom'}
+                            onChange={(e) => applyCatalogModel(e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: 'var(--bg-main)',
+                                color: 'var(--text-main)',
+                                border: '1px solid var(--border)',
+                                padding: '4px',
+                                borderRadius: '4px'
+                            }}
+                        >
+                            {THORLABS_CATALOG[selectedComp.type].map(model => (
+                                <option key={model.id} value={model.id}>{model.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {(!['text'].includes(selectedComp.type)) && (
+                    <div style={{ marginBottom: '1rem', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                            <label style={{ fontSize: '0.9em', fontWeight: 'bold' }}>Physical Dims (mm)</label>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
+                            <div>
+                                <label style={{ fontSize: '0.7em', color: '#888' }}>Length</label>
+                                <input
+                                    type="number"
+                                    onFocus={saveCheckpoint}
+                                    value={selectedComp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM[selectedComp.type]?.length ?? 0}
+                                    onChange={(e) => updatePhysicalDim('length', e.target.value)}
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: '4px', padding: '2px' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.7em', color: '#888' }}>Width</label>
+                                <input
+                                    type="number"
+                                    onFocus={saveCheckpoint}
+                                    value={selectedComp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM[selectedComp.type]?.width ?? 0}
+                                    onChange={(e) => updatePhysicalDim('width', e.target.value)}
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: '4px', padding: '2px' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.7em', color: '#888' }}>Height</label>
+                                <input
+                                    type="number"
+                                    onFocus={saveCheckpoint}
+                                    value={selectedComp.params?.physicalDim?.height ?? DEFAULT_DIMENSIONS_MM[selectedComp.type]?.height ?? 0}
+                                    onChange={(e) => updatePhysicalDim('height', e.target.value)}
+                                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: '4px', padding: '2px' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {selectedComp.type === 'laser' && (
                     <div style={{ marginBottom: '1rem' }}>

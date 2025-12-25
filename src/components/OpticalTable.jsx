@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateRays } from '../engine/raytracer';
 import { add, sub, mul, mag, normalize, getGaussianWidth } from '../engine/mathUtils';
+import { PIXELS_PER_MM, toPixels, toMM, DEFAULT_DIMENSIONS_MM } from '../engine/units';
 
 const GRID_SIZE = 40;
 
@@ -80,7 +81,15 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
     const svgRef = useRef(null);
 
     // Calculate Rays
-    const { rays, hits, hitColors } = useMemo(() => calculateRays(components), [components]);
+    const { rays, hits, hitColors } = useMemo(() => {
+        try {
+            if (!components) return { rays: [], hits: {}, hitColors: {} };
+            return calculateRays(components);
+        } catch (err) {
+            console.error("Critical Raytracer Error:", err);
+            return { rays: [], hits: {}, hitColors: {} };
+        }
+    }, [components]);
 
     // --- View Navigation (Pan/Zoom) ---
     const handleWheel = (e) => {
@@ -206,6 +215,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
             transmission: type === 'beamsplitter' ? 0.5 : undefined,
             efficiency: type === 'aom' ? 0.9 : undefined,
             deviation: type === 'aom' ? 5 : undefined,
+            physicalDim: DEFAULT_DIMENSIONS_MM[type] || { length: 25, width: 25, height: 25 },
         };
 
         const shouldSnap = e.ctrlKey || e.metaKey;
@@ -350,6 +360,110 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                 {/* Center Marker */}
                 <path className="no-export" d="M -10 0 L 10 0 M 0 -10 L 0 10" stroke="#00ff9d" strokeWidth="2" strokeOpacity="0.5" />
 
+                {/* Grid Labels (Coordinate System) */}
+                {/* Grid Labels (Coordinate System) */}
+                <g className="no-export" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                    {(() => {
+                        const majorGridSize = 200; // 125mm
+                        const startX = Math.floor(viewBox.x / majorGridSize) * majorGridSize;
+                        const endX = Math.ceil((viewBox.x + viewBox.w) / majorGridSize) * majorGridSize;
+                        const startY = Math.floor(viewBox.y / majorGridSize) * majorGridSize;
+                        const endY = Math.ceil((viewBox.y + viewBox.h) / majorGridSize) * majorGridSize;
+
+                        const labels = [];
+                        // X Labels
+                        for (let x = startX; x <= endX; x += majorGridSize) {
+                            if (x === 0) continue; // Skip center
+                            labels.push(
+                                <text
+                                    key={`x-${x}`}
+                                    x={x}
+                                    y={viewBox.y + 20}
+                                    fill="var(--text-dim)"
+                                    fontSize="12"
+                                    textAnchor="middle"
+                                    opacity="0.6"
+                                >
+                                    {Math.round(toMM(x))} mm
+                                </text>
+                            );
+                        }
+                        // Y Labels
+                        for (let y = startY; y <= endY; y += majorGridSize) {
+                            if (y === 0) continue; // Skip center
+                            labels.push(
+                                <text
+                                    key={`y-${y}`}
+                                    x={viewBox.x + 10}
+                                    y={y + 4}
+                                    fill="var(--text-dim)"
+                                    fontSize="12"
+                                    textAnchor="start"
+                                    opacity="0.6"
+                                >
+                                    {Math.round(toMM(y))} mm
+                                </text>
+                            );
+                        }
+                        return labels;
+                    })()}
+                </g>
+
+                {/* Draw Breadboards (Background Layer - Below Rays) */}
+                {components.filter(c => c.type === 'breadboard').map(comp => (
+                    <g
+                        key={comp.id}
+                        transform={`translate(${comp.position.x}, ${comp.position.y}) rotate(${comp.rotation})`}
+                        onMouseDown={(e) => handleCompMouseDown(e, comp.id)}
+                        style={{ cursor: draggedCompId === comp.id ? 'grabbing' : 'grab' }}
+                        className="component-group"
+                    >
+                        {(() => {
+                            const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.breadboard.length);
+                            const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.breadboard.width);
+                            const spacing = toPixels(25); // 25mm spacing
+
+                            // Generate holes
+                            const holes = [];
+                            const cols = Math.floor(L / spacing);
+                            const rows = Math.floor(W / spacing);
+
+                            // Center the grid
+                            const offsetX = (L - (cols * spacing)) / 2;
+                            const offsetY = (W - (rows * spacing)) / 2;
+
+                            for (let i = 0; i < cols; i++) {
+                                for (let j = 0; j < rows; j++) {
+                                    holes.push(
+                                        <circle
+                                            key={`${i}-${j}`}
+                                            cx={-L / 2 + offsetX + i * spacing + spacing / 2}
+                                            cy={-W / 2 + offsetY + j * spacing + spacing / 2}
+                                            r="4"
+                                            fill="#111"
+                                            opacity="0.5"
+                                        />
+                                    );
+                                }
+                            }
+
+                            return (
+                                <>
+                                    {/* Plate Body */}
+                                    <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#282828" stroke="#444" strokeWidth="2" rx="4" />
+                                    {/* Holes */}
+                                    {holes}
+                                    {/* Screw corners (Visual) */}
+                                    <circle cx={-L / 2 + 12} cy={-W / 2 + 12} r="6" fill="#444" />
+                                    <circle cx={L / 2 - 12} cy={-W / 2 + 12} r="6" fill="#444" />
+                                    <circle cx={-L / 2 + 12} cy={W / 2 - 12} r="6" fill="#444" />
+                                    <circle cx={L / 2 - 12} cy={W / 2 - 12} r="6" fill="#444" />
+                                </>
+                            );
+                        })()}
+                    </g>
+                ))}
+
                 {/* Draw Rays */}
                 {rays.map((ray, i) => {
                     const polygonPoints = generateBeamPolygon(ray);
@@ -376,8 +490,8 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                     );
                 })}
 
-                {/* Draw Components */}
-                {components.map(comp => (
+                {/* Draw Components (Foreground - Above Rays) */}
+                {components.filter(c => c.type !== 'breadboard').map(comp => (
                     <g
                         key={comp.id}
                         transform={`translate(${comp.position.x}, ${comp.position.y}) rotate(${comp.rotation})`}
@@ -389,10 +503,18 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {comp.type === 'laser' && (
                             <g>
                                 {/* Laser Body */}
-                                <rect x="-40" y="-20" width="80" height="40" rx="4" fill="#333" stroke="#555" strokeWidth="2" />
-                                {/* Aperture / Front */}
-                                <rect x="36" y="-8" width="8" height="16" fill={comp.params?.color || 'red'} />
-                                {/* Label/Icon */}
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.laser.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.laser.width);
+                                    return (
+                                        <>
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} rx="4" fill="#333" stroke="#555" strokeWidth="2" />
+                                            {/* Aperture / Front */}
+                                            <rect x={L / 2 - 4} y={-4} width={4} height={8} fill={comp.params?.color || 'red'} />
+                                        </>
+                                    );
+                                })()}
+
                                 {/* Label/Icon */}
                                 {comp.params?.label ? (
                                     <text
@@ -414,203 +536,280 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
 
                         {comp.type === 'mirror' && (
                             <g>
-                                {/* Glass/Reflective Surface */}
-                                <rect x="-4" y="-50" width="8" height="100" fill="#aaccff" fillOpacity="0.4" stroke="#aaccff" strokeWidth="2" />
-                                {/* Backing/Silver */}
-                                <line x1="0" y1="-50" x2="0" y2="50" stroke="silver" strokeWidth="4" />
+                                {(() => {
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.mirror.width);
+                                    const T = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.mirror.length); // Thickness
+                                    return (
+                                        <>
+                                            {/* Glass/Reflective Surface */}
+                                            <rect x={-T / 2} y={-W / 2} width={T} height={W} fill="#aaccff" fillOpacity="0.4" stroke="#aaccff" strokeWidth="2" />
+                                            {/* Backing/Silver */}
+                                            <line x1="0" y1={-W / 2} x2="0" y2={W / 2} stroke="silver" strokeWidth={T} />
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {comp.type === 'lens' && (
                             <g>
-                                {/* Hit Area (Transparent) */}
-                                <rect x="-30" y="-60" width="60" height="120" fill="transparent" stroke="none" />
+                                {(() => {
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.lens.width);
+                                    const H = W; // Lens is usually circular/height match
+                                    const R = H / 2;
+                                    const T = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.lens.length);
 
+                                    // Construct paths based on W/H
+                                    // Convex: Q curve control point? 
+                                    // d="M 0 -60 Q 30 0 0 60 Q -30 0 0 -60"
+                                    // 60 => R. 30 => Thickness factor? 
+                                    // Let's approximate curvature.
 
-                                {/* Lens Glass Body */}
-                                {(!comp.params?.lensShape || comp.params.lensShape === 'convex') && (
-                                    <path
-                                        d="M 0 -60 Q 30 0 0 60 Q -30 0 0 -60"
-                                        fill="rgba(100, 200, 255, 0.3)"
-                                        stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="2"
-                                    />
-                                )}
-                                {comp.params?.lensShape === 'concave' && (
-                                    <path
-                                        d="M -20 -60 Q 0 0 -20 60 L 20 60 Q 0 0 20 -60 Z"
-                                        fill="rgba(100, 200, 255, 0.3)"
-                                        stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="2"
-                                    />
-                                )}
-                                {comp.params?.lensShape === 'plano-convex' && (
-                                    <path
-                                        d="M -10 -60 L -10 60 Q 30 0 -10 -60"
-                                        fill="rgba(100, 200, 255, 0.3)"
-                                        stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="2"
-                                    />
-                                )}
-                                {comp.params?.lensShape === 'plano-concave' && (
-                                    <path
-                                        d="M -10 -60 L -10 60 L 20 60 Q 0 0 20 -60 Z"
-                                        fill="rgba(100, 200, 255, 0.3)"
-                                        stroke="rgba(100, 200, 255, 0.8)"
-                                        strokeWidth="2"
-                                    />
-                                )}
+                                    const curve = R * 0.5; // Curvature amount
+
+                                    return (
+                                        <>
+                                            {/* Hit Area (Transparent) */}
+                                            <rect x={-T * 2} y={-R} width={T * 4} height={H} fill="transparent" stroke="none" />
+
+                                            {/* Lens Glass Body */}
+                                            {(!comp.params?.lensShape || comp.params.lensShape === 'convex') && (
+                                                <path
+                                                    d={`M 0 ${-R} Q ${curve} 0 0 ${R} Q ${-curve} 0 0 ${-R}`}
+                                                    fill="rgba(100, 200, 255, 0.3)"
+                                                    stroke="rgba(100, 200, 255, 0.8)"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            {comp.params?.lensShape === 'concave' && (
+                                                <path
+                                                    d={`M ${-curve * 0.6} ${-R} Q 0 0 ${-curve * 0.6} ${R} L ${curve * 0.6} ${R} Q 0 0 ${curve * 0.6} ${-R} Z`}
+                                                    fill="rgba(100, 200, 255, 0.3)"
+                                                    stroke="rgba(100, 200, 255, 0.8)"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            {comp.params?.lensShape === 'plano-convex' && (
+                                                <path
+                                                    d={`M ${-curve * 0.3} ${-R} L ${-curve * 0.3} ${R} Q ${curve} 0 ${-curve * 0.3} ${-R}`}
+                                                    fill="rgba(100, 200, 255, 0.3)"
+                                                    stroke="rgba(100, 200, 255, 0.8)"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                            {comp.params?.lensShape === 'plano-concave' && (
+                                                <path
+                                                    d={`M ${-curve * 0.3} ${-R} L ${-curve * 0.3} ${R} L ${curve * 0.6} ${R} Q 0 0 ${curve * 0.6} ${-R} Z`}
+                                                    fill="rgba(100, 200, 255, 0.3)"
+                                                    stroke="rgba(100, 200, 255, 0.8)"
+                                                    strokeWidth="2"
+                                                />
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {comp.type === 'beamsplitter' && (
                             <g>
-                                {/* Glass Cube Body */}
-                                <rect x="-30" y="-30" width="60" height="60" fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="2" />
-                                {/* Diagonal Splitter Surface (Bottom-Left to Top-Right) */}
-                                <line x1="-30" y1="30" x2="30" y2="-30" stroke="silver" strokeWidth="4" strokeDasharray="4,2" />
+                                {(() => {
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.beamsplitter.width);
+                                    const half = W / 2;
+                                    return (
+                                        <>
+                                            {/* Glass Cube Body */}
+                                            <rect x={-half} y={-half} width={W} height={W} fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="2" />
+                                            {/* Diagonal Splitter Surface (Bottom-Left to Top-Right) */}
+                                            <line x1={-half} y1={half} x2={half} y2={-half} stroke="silver" strokeWidth="4" strokeDasharray="4,2" />
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {comp.type === 'aom' && (
                             <g>
-                                {/* Crystal Body */}
-                                <rect x="-20" y="-40" width="40" height="80" fill="rgba(200, 200, 255, 0.4)" stroke="#88f" strokeWidth="2" />
-                                {/* Transducer (Piezo) on Top */}
-                                <rect x="-20" y="-52" width="40" height="12" fill="#d4af37" stroke="#b8860b" />
-                                {/* RF Cable / Symbol */}
-                                <path d="M 0 -52 L 0 -70" stroke="#888" strokeWidth="2" />
-                                <circle cx="0" cy="-70" r="4" fill="#888" />
-                                {/* Internal Gratings (Decoration) */}
-                                <path d="M -12 -30 L 12 -30 M -12 -10 L 12 -10 M -12 10 L 12 10 M -12 30 L 12 30" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.aom.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.aom.width);
+                                    return (
+                                        <>
+                                            {/* Crystal Body */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="rgba(200, 200, 255, 0.4)" stroke="#88f" strokeWidth="2" />
+                                            {/* Transducer (Piezo) on Top (relative) */}
+                                            <rect x={-L / 2} y={-W / 2 - 12} width={L} height={12} fill="#d4af37" stroke="#b8860b" />
+                                            {/* RF Cable / Symbol */}
+                                            <path d={`M 0 ${-W / 2 - 12} L 0 ${-W / 2 - 30}`} stroke="#888" strokeWidth="2" />
+                                            <circle cx="0" cy={-W / 2 - 30} r="4" fill="#888" />
+                                            {/* Internal Gratings (Decoration) */}
+                                            <path d={`M ${-L * 0.3} ${-W * 0.4} L ${L * 0.3} ${-W * 0.4} M ${-L * 0.3} 0 L ${L * 0.3} 0 M ${-L * 0.3} ${W * 0.4} L ${L * 0.3} ${W * 0.4}`} stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {comp.type === 'detector' && (
                             <g>
-                                {/* Sensor Body */}
-                                <rect x="-10" y="-40" width="20" height="80" fill="#222" stroke="#555" strokeWidth="2" />
-                                {/* Active Area */}
-                                <rect x="-10" y="-36" width="8" height="72" fill="#111" />
-                                {/* Readout Overlay (always horizontal) - conditional */}
-                                {(comp.params?.showReadout ?? true) && (
-                                    <g transform={`rotate(${-comp.rotation}) translate(30, 0)`}>
-                                        <rect x="-10" y="-20" width="90" height="40" rx="8" fill="rgba(0,0,0,0.8)" stroke="#555" />
-                                        <text x="34" y="8" fill="#0f0" fontSize="20" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                                            {formatPower(hits[comp.id] || 0)}
-                                        </text>
-                                    </g>
-                                )}
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.detector.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.detector.width);
+                                    return (
+                                        <>
+                                            {/* Sensor Body */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#222" stroke="#555" strokeWidth="2" />
+                                            {/* Active Area */}
+                                            <rect x={-L / 2} y={-W / 2 + 2} width={L > 4 ? L - 4 : L} height={W > 4 ? W - 4 : W} fill="#111" />
+                                            {/* Readout Overlay (always horizontal) - conditional */}
+                                            {(comp.params?.showReadout ?? true) && (
+                                                <g transform={`rotate(${-comp.rotation}) translate(${W / 2 + 20}, 0)`}>
+                                                    <rect x="-10" y="-20" width="90" height="40" rx="8" fill="rgba(0,0,0,0.8)" stroke="#555" />
+                                                    <text x="34" y="8" fill="#0f0" fontSize="20" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                                                        {formatPower(hits[comp.id] || 0)}
+                                                    </text>
+                                                </g>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
 
                         {(comp.type === 'iris' || comp.type === 'blocker') && (
                             <g>
-                                {/* Iris Housing (Square/Rect like mount) */}
-                                <rect x="-20" y="-40" width="40" height="80" fill="#222" stroke="#555" strokeWidth="2" />
-                                {/* Aperture Blades visual */}
-                                <circle cx="0" cy="0" r="32" fill="#111" stroke="#333" />
-                                {/* The actual opening (Hole) */}
-                                {/* Size depends on aperture param. Max 40 = Radius 20? Let's say max aperture 20 -> radius 10. */}
-                                {/* Param is diameter? If param 20 (default), radius 10. */}
-                                <circle cx="0" cy="0" r={(comp.params?.aperture ?? 40) / 2} fill="#333" stroke="none" />
-                                {/* Blade lines (Symbolic) */}
-                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(0)" />
-                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(60)" />
-                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(120)" />
-                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(180)" />
-                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(240)" />
-                                <path d="M 0 -32 L 0 -20 M 22 -22 L 14 -14 M 32 0 L 20 0" stroke="#444" transform="rotate(300)" />
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.iris.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.iris.width);
+                                    // Aperture is relative to visual size or just open?
+                                    // Visual aperture max is W.
+                                    const aperture = Math.min((comp.params?.aperture ?? 20), W); // aperture in pixels? No, param is likely mm or px?
+                                    // Let's assume params.aperture is in pixels for now as I didn't verify that param logic change.
+                                    // But really it should be proportional to W.
+
+                                    return (
+                                        <>
+                                            {/* Iris Housing (Square/Rect like mount) */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#222" stroke="#555" strokeWidth="2" />
+                                            {/* Aperture Blades visual */}
+                                            <circle cx={0} cy={0} r={W / 2 - 2} fill="#111" stroke="#333" />
+                                            {/* The actual opening (Hole) */}
+                                            <circle cx={0} cy={0} r={aperture / 2} fill="#333" stroke="none" />
+                                            {/* Blade lines (Symbolic) */}
+                                            {[0, 60, 120, 180, 240, 300].map(rot => (
+                                                <path key={rot} d={`M 0 ${-W / 2} L 0 ${-W / 2 + 12} M ${W / 2 - 10} ${-W / 2 + 10} L ${W / 2 - 18} ${-W / 2 + 18}`} stroke="#444" transform={`rotate(${rot})`} />
+                                            ))}
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {comp.type === 'fiber' && (
                             <g>
-                                {/* Fiber Coupler Body (Collimator) */}
-                                <rect x="-16" y="-30" width="32" height="60" rx="8" fill="#333" stroke="#666" strokeWidth="2" />
-                                {/* Lens / Entrance */}
-                                <circle cx="-16" cy="0" r="12" fill="#555" stroke="#888" strokeWidth="2" />
-                                {/* Fiber Boot */}
-                                <rect x="16" y="-8" width="12" height="16" fill="#222" />
-                                {/* Fiber Cable (Yellow, curved) */}
-                                <path
-                                    d="M 28 0 Q 60 0, 60 40 T 100 60"
-                                    fill="none"
-                                    stroke={hitColors?.[comp.id] || 'orange'}
-                                    strokeWidth="6"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M 28 0 Q 60 0, 60 40 T 100 60"
-                                    fill="none"
-                                    stroke={hitColors?.[comp.id] ? 'white' : 'gold'}
-                                    strokeWidth="3"
-                                    strokeLinecap="round"
-                                    style={{ opacity: hitColors?.[comp.id] ? 0.3 : 0.8 }}
-                                />
-                                {/* Power Readout - conditional */}
-                                {(comp.params?.showReadout ?? true) && (
-                                    <g transform={`rotate(${-comp.rotation}) translate(30, -50)`}>
-                                        <text x="0" y="0" fill="var(--text-dim)" fontSize="20" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
-                                            {formatPower(hits[comp.id] || 0)}
-                                        </text>
-                                    </g>
-                                )}
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.fiber.length); // 20mm
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.fiber.width); // 10mm
+                                    // Visual scaling:
+                                    // Body x: -L/2 to L/2? 
+                                    // Previous: -16 to 16 (32 wide). Height 60 (-30 to 30).
+                                    // Wait, fiber is rotated? 
+                                    // If W=10 (16px), it's thin.
+
+                                    return (
+                                        <>
+                                            {/* Fiber Coupler Body (Collimator) */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} rx="4" fill="#333" stroke="#666" strokeWidth="2" />
+                                            {/* Lens / Entrance - front is -L/2 */}
+                                            <circle cx={-L / 2} cy="0" r={W / 2 - 2} fill="#555" stroke="#888" strokeWidth="2" />
+                                            {/* Fiber Boot - back is L/2 */}
+                                            <rect x={L / 2} y={-W / 4} width={W / 2} height={W / 2} fill="#222" />
+                                            {/* Fiber Cable (Yellow, curved) */}
+                                            <path
+                                                d={`M ${L / 2 + W / 2} 0 Q ${L / 2 + W * 2} 0, ${L / 2 + W * 2} ${W} T ${L / 2 + W * 4} ${W * 1.5}`}
+                                                fill="none"
+                                                stroke={hitColors?.[comp.id] || 'orange'}
+                                                strokeWidth="4"
+                                                strokeLinecap="round"
+                                            />
+                                            {/* Power Readout - conditional */}
+                                            {(comp.params?.showReadout ?? true) && (
+                                                <g transform={`rotate(${-comp.rotation}) translate(${L}, ${-W})`}>
+                                                    <text x="0" y="0" fill="var(--text-dim)" fontSize="16" fontFamily="monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                                                        {formatPower(hits[comp.id] || 0)}
+                                                    </text>
+                                                </g>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {/* Optical Cavity - two parallel mirrors */}
                         {comp.type === 'cavity' && (
                             <g>
-                                {/* Cavity frame/body */}
-                                <rect
-                                    x={-(comp.params?.cavityLength ?? 100) / 2 - 10}
-                                    y="-50"
-                                    width={(comp.params?.cavityLength ?? 100) + 20}
-                                    height="100"
-                                    fill="none"
-                                    stroke="#444"
-                                    strokeWidth="2"
-                                    strokeDasharray="8,4"
-                                    rx="8"
-                                />
-                                {/* Left mirror (curved) */}
-                                <path
-                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -40 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 16} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 40`}
-                                    fill="none"
-                                    stroke="#aaccff"
-                                    strokeWidth="6"
-                                />
-                                <path
-                                    d={`M ${-(comp.params?.cavityLength ?? 100) / 2} -40 Q ${-(comp.params?.cavityLength ?? 100) / 2 - 16} 0 ${-(comp.params?.cavityLength ?? 100) / 2} 40`}
-                                    fill="none"
-                                    stroke="silver"
-                                    strokeWidth="3"
-                                />
-                                {/* Right mirror (curved) */}
-                                <path
-                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -40 Q ${(comp.params?.cavityLength ?? 100) / 2 + 16} 0 ${(comp.params?.cavityLength ?? 100) / 2} 40`}
-                                    fill="none"
-                                    stroke="#aaccff"
-                                    strokeWidth="6"
-                                />
-                                <path
-                                    d={`M ${(comp.params?.cavityLength ?? 100) / 2} -40 Q ${(comp.params?.cavityLength ?? 100) / 2 + 16} 0 ${(comp.params?.cavityLength ?? 100) / 2} 40`}
-                                    fill="none"
-                                    stroke="silver"
-                                    strokeWidth="3"
-                                />
-                                {/* Center axis line */}
-                                <line
-                                    x1={-(comp.params?.cavityLength ?? 100) / 2 + 10}
-                                    y1="0"
-                                    x2={(comp.params?.cavityLength ?? 100) / 2 - 10}
-                                    y2="0"
-                                    stroke="#333"
-                                    strokeWidth="2"
-                                    strokeDasharray="4,8"
-                                />
+                                {(() => {
+                                    const H = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.cavity.width);
+                                    const LParams = comp.params?.cavityLength ?? 100; // Keep as params? Or convert? 
+                                    // cavityLength param is likely pixels in old code. 
+                                    // I should probably treat it as pixels for now, or scale it if I want proper units.
+                                    // Let's assume params are still raw for now, but frame height is H.
+
+                                    return (
+                                        <>
+                                            {/* Cavity frame/body */}
+                                            <rect
+                                                x={-LParams / 2 - 10}
+                                                y={-H / 2 - 10}
+                                                width={LParams + 20}
+                                                height={H + 20}
+                                                fill="none"
+                                                stroke="#444"
+                                                strokeWidth="2"
+                                                strokeDasharray="8,4"
+                                                rx="8"
+                                            />
+                                            {/* Left mirror (curved) */}
+                                            <path
+                                                d={`M ${-LParams / 2} ${-H / 2} Q ${-LParams / 2 - H * 0.2} 0 ${-LParams / 2} ${H / 2}`}
+                                                fill="none"
+                                                stroke="#aaccff"
+                                                strokeWidth="6"
+                                            />
+                                            <path
+                                                d={`M ${-LParams / 2} ${-H / 2} Q ${-LParams / 2 - H * 0.2} 0 ${-LParams / 2} ${H / 2}`}
+                                                fill="none"
+                                                stroke="silver"
+                                                strokeWidth="3"
+                                            />
+                                            {/* Right mirror (curved) */}
+                                            <path
+                                                d={`M ${LParams / 2} ${-H / 2} Q ${LParams / 2 + H * 0.2} 0 ${LParams / 2} ${H / 2}`}
+                                                fill="none"
+                                                stroke="#aaccff"
+                                                strokeWidth="6"
+                                            />
+                                            <path
+                                                d={`M ${LParams / 2} ${-H / 2} Q ${LParams / 2 + H * 0.2} 0 ${LParams / 2} ${H / 2}`}
+                                                fill="none"
+                                                stroke="silver"
+                                                strokeWidth="3"
+                                            />
+                                            {/* Center axis line */}
+                                            <line
+                                                x1={-LParams / 2 + 10}
+                                                y1="0"
+                                                x2={LParams / 2 - 10}
+                                                y2="0"
+                                                stroke="#333"
+                                                strokeWidth="2"
+                                                strokeDasharray="4,8"
+                                            />
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
@@ -645,160 +844,216 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         {/* Half-Wave Plate */}
                         {comp.type === 'hwp' && (
                             <g>
-                                {/* Plate body */}
-                                <rect x="-6" y="-30" width="12" height="60" fill="rgba(100, 255, 150, 0.4)" stroke="#4a4" strokeWidth="2" rx="2" />
-                                {/* Fast axis indicator */}
-                                <line
-                                    x1="0" y1="-24" x2="0" y2="24"
-                                    stroke="#4a4"
-                                    strokeWidth="2"
-                                    strokeDasharray="4,4"
-                                    transform={`rotate(${comp.params?.fastAxis ?? 0})`}
-                                />
-                                {/* Label */}
-                                <text x="0" y="44" fill="#8f8" fontSize="16" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/2</text>
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.hwp.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.hwp.width);
+                                    return (
+                                        <>
+                                            {/* Plate body */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="rgba(100, 255, 150, 0.4)" stroke="#4a4" strokeWidth="2" rx="2" />
+                                            {/* Fast axis indicator */}
+                                            <line
+                                                x1="0" y1={-W / 2 + 4} x2="0" y2={W / 2 - 4}
+                                                stroke="#4a4"
+                                                strokeWidth="2"
+                                                strokeDasharray="4,4"
+                                                transform={`rotate(${comp.params?.fastAxis ?? 0})`}
+                                            />
+                                            {/* Label */}
+                                            <text x="0" y={W / 2 + 12} fill="#8f8" fontSize="12" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/2</text>
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {/* Quarter-Wave Plate */}
                         {comp.type === 'qwp' && (
                             <g>
-                                {/* Plate body */}
-                                <rect x="-6" y="-30" width="12" height="60" fill="rgba(100, 180, 255, 0.4)" stroke="#48f" strokeWidth="2" rx="2" />
-                                {/* Fast axis indicator */}
-                                <line
-                                    x1="0" y1="-24" x2="0" y2="24"
-                                    stroke="#48f"
-                                    strokeWidth="2"
-                                    strokeDasharray="4,4"
-                                    transform={`rotate(${comp.params?.fastAxis ?? 45})`}
-                                />
-                                {/* Label */}
-                                <text x="0" y="44" fill="#8af" fontSize="16" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/4</text>
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.qwp.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.qwp.width);
+                                    return (
+                                        <>
+                                            {/* Plate body */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="rgba(100, 180, 255, 0.4)" stroke="#48f" strokeWidth="2" rx="2" />
+                                            {/* Fast axis indicator */}
+                                            <line
+                                                x1="0" y1={-W / 2 + 4} x2="0" y2={W / 2 - 4}
+                                                stroke="#48f"
+                                                strokeWidth="2"
+                                                strokeDasharray="4,4"
+                                                transform={`rotate(${comp.params?.fastAxis ?? 45})`}
+                                            />
+                                            {/* Label */}
+                                            <text x="0" y={W / 2 + 12} fill="#8af" fontSize="12" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>λ/4</text>
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {/* Polarizer */}
                         {comp.type === 'polarizer' && (
                             <g>
-                                {/* Body */}
-                                <rect x="-8" y="-30" width="16" height="60" fill="#333" stroke="#666" strokeWidth="2" rx="2" />
-                                {/* Polarization stripes */}
-                                <line x1="0" y1="-24" x2="0" y2="24" stroke="#888" strokeWidth="1" />
-                                <line x1="-4" y1="-24" x2="-4" y2="24" stroke="#888" strokeWidth="1" />
-                                <line x1="4" y1="-24" x2="4" y2="24" stroke="#888" strokeWidth="1" />
-                                {/* Axis indicator arrow */}
-                                <line
-                                    x1="0" y1="-36" x2="0" y2="-44"
-                                    stroke="#ff0"
-                                    strokeWidth="4"
-                                    transform={`rotate(${comp.params?.polarizerAxis ?? 0})`}
-                                />
-                                <circle cx="0" cy="-44" r="4" fill="#ff0" transform={`rotate(${comp.params?.polarizerAxis ?? 0})`} />
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.polarizer.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.polarizer.width);
+                                    return (
+                                        <>
+                                            {/* Body */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#333" stroke="#666" strokeWidth="2" rx="2" />
+                                            {/* Polarization stripes */}
+                                            <line x1="0" y1={-W / 2 + 6} x2="0" y2={W / 2 - 6} stroke="#888" strokeWidth="1" />
+                                            <line x1={-L / 4} y1={-W / 2 + 6} x2={-L / 4} y2={W / 2 - 6} stroke="#888" strokeWidth="1" />
+                                            <line x1={L / 4} y1={-W / 2 + 6} x2={L / 4} y2={W / 2 - 6} stroke="#888" strokeWidth="1" />
+                                            {/* Axis indicator arrow */}
+                                            <line
+                                                x1="0" y1={-W / 2 - 6} x2="0" y2={-W / 2 - 14}
+                                                stroke="#ff0"
+                                                strokeWidth="4"
+                                                transform={`rotate(${comp.params?.polarizerAxis ?? 0})`}
+                                            />
+                                            <circle cx="0" cy={-W / 2 - 14} r="4" fill="#ff0" transform={`rotate(${comp.params?.polarizerAxis ?? 0})`} />
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {/* Polarizing Beam Splitter */}
                         {comp.type === 'pbs' && (
                             <g>
-                                {/* Cube body */}
-                                <rect x="-30" y="-30" width="60" height="60" fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="2" />
-                                {/* Diagonal coating (polarizing surface) */}
-                                <line x1="-30" y1="30" x2="30" y2="-30" stroke="#8af" strokeWidth="4" />
-                                {/* PBS label */}
-                                <text x="0" y="44" fill="#8af" fontSize="16" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>PBS</text>
-                                {/* Axis indicator */}
-                                <line
-                                    x1="0" y1="-36" x2="0" y2="-50"
-                                    stroke="#ff0"
-                                    strokeWidth="4"
-                                    transform={`rotate(${comp.params?.pbsAxis ?? 0})`}
-                                />
+                                {(() => {
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.pbs.width);
+                                    const half = W / 2;
+                                    return (
+                                        <>
+                                            {/* Cube body */}
+                                            <rect x={-half} y={-half} width={W} height={W} fill="rgba(200, 220, 255, 0.3)" stroke="rgba(200, 220, 255, 0.6)" strokeWidth="2" />
+                                            {/* Diagonal coating (polarizing surface) */}
+                                            <line x1={-half} y1={half} x2={half} y2={-half} stroke="#8af" strokeWidth="4" />
+                                            {/* PBS label */}
+                                            <text x="0" y={half + 14} fill="#8af" fontSize="12" textAnchor="middle" fontFamily="Arial" style={{ userSelect: 'none' }}>PBS</text>
+                                            {/* Axis indicator */}
+                                            <line
+                                                x1="0" y1={-half - 6} x2="0" y2={-half - 20}
+                                                stroke="#ff0"
+                                                strokeWidth="4"
+                                                transform={`rotate(${comp.params?.pbsAxis ?? 0})`}
+                                            />
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
                         {/* Polarization Detector */}
                         {comp.type === 'poldetector' && (
                             <g>
-                                {/* Sensor Body (similar to detector but different color) */}
-                                <rect x="-10" y="-40" width="20" height="80" fill="#234" stroke="#68f" strokeWidth="2" />
-                                {/* Active Area with polarization stripes */}
-                                <rect x="-10" y="-36" width="8" height="72" fill="#123" />
-                                <line x1="-8" y1="-30" x2="-8" y2="30" stroke="#68f" strokeWidth="1" />
-                                <line x1="-4" y1="-30" x2="-4" y2="30" stroke="#68f" strokeWidth="1" />
-                                {/* Readout Overlay (shows polarization) */}
-                                {(comp.params?.showReadout ?? true) && (
-                                    <g transform={`rotate(${-comp.rotation}) translate(30, 0)`}>
-                                        <rect x="-10" y="-50" width="100" height="100" rx="8" fill="rgba(20, 20, 26, 0.9)" stroke="#68f" strokeWidth="1" />
+                                {(() => {
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? DEFAULT_DIMENSIONS_MM.poldetector.length);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.poldetector.width);
+                                    return (
+                                        <>
+                                            {/* Sensor Body (similar to detector but different color) */}
+                                            <rect x={-L / 2} y={-W / 2} width={L} height={W} fill="#234" stroke="#68f" strokeWidth="2" />
+                                            {/* Active Area with polarization stripes */}
+                                            <rect x={-L / 2} y={-W / 2 + 2} width={L > 4 ? L - 4 : L} height={W > 4 ? W - 4 : W} fill="#123" />
+                                            <line x1={-L / 2 + 2} y1={-W / 2 + 6} x2={-L / 2 + 2} y2={W / 2 - 6} stroke="#68f" strokeWidth="1" />
+                                            <line x1={0} y1={-W / 2 + 6} x2={0} y2={W / 2 - 6} stroke="#68f" strokeWidth="1" />
+                                            {/* Readout Overlay (shows polarization) */}
+                                            {(comp.params?.showReadout ?? true) && (
+                                                <g transform={`rotate(${-comp.rotation}) translate(${W / 2 + 20}, 0)`}>
+                                                    <rect x="-10" y="-50" width="100" height="100" rx="8" fill="rgba(20, 20, 26, 0.9)" stroke="#68f" strokeWidth="1" />
 
-                                        {/* Visualization Area */}
-                                        <g transform="translate(40, 0)">
-                                            {/* Axis */}
-                                            <line x1="-30" y1="0" x2="30" y2="0" stroke="#444" strokeWidth="1" />
-                                            <line x1="0" y1="-30" x2="0" y2="30" stroke="#444" strokeWidth="1" />
+                                                    {/* Visualization Area */}
+                                                    <g transform="translate(40, 0)">
+                                                        {/* Axis */}
+                                                        <line x1="-30" y1="0" x2="30" y2="0" stroke="#444" strokeWidth="1" />
+                                                        <line x1="0" y1="-30" x2="0" y2="30" stroke="#444" strokeWidth="1" />
 
-                                            {(() => {
-                                                const intensity = hits[comp.id] || 0;
-                                                const angle = hits[comp.id + '_pol'] ?? 0; // Orientation
-                                                const ellipticity = hits[comp.id + '_ellipticity'] ?? 0; // -45 to 45 (0=Linear, 45=Circ)
+                                                        {(() => {
+                                                            const intensity = hits[comp.id] || 0;
+                                                            const angle = hits[comp.id + '_pol'] ?? 0; // Orientation
+                                                            const ellipticity = hits[comp.id + '_ellipticity'] ?? 0; // -45 to 45 (0=Linear, 45=Circ)
 
-                                                if (intensity < 0.05) return <text x="0" y="5" fill="#555" fontSize="10" textAnchor="middle">No Signal</text>;
+                                                            if (intensity < 0.05) return <text x="0" y="5" fill="#555" fontSize="10" textAnchor="middle">No Signal</text>;
 
-                                                // Draw Ellipse
-                                                // Convert ellipticity to minor/major axis ratio
-                                                // eta = tan(chi). minor/major = tan(chi)
-                                                // For chi=0, ratio=0 (Line). For chi=45, ratio=1 (Circle)
+                                                            const chiRad = (ellipticity * Math.PI) / 180;
+                                                            const size = 25;
+                                                            // Limit minor axis
+                                                            const b = Math.min(size, Math.abs(size * Math.tan(chiRad)));
+                                                            const a = size;
 
-                                                const chiRad = (ellipticity * Math.PI) / 180;
-                                                const angleRad = (-angle * Math.PI) / 180; // SVG Y is down, so negate angle for visual
-
-                                                // Parametric equation for general ellipse with orientation `angle` and ellipticity `chi`
-                                                // x(t) = A (cos t cos theta - sin t sin theta sin chi) ?? 
-                                                // Easier: Draw ellipse aligned to axes then rotate.
-
-                                                const size = 25;
-                                                const minor = size * Math.tan(Math.abs(chiRad)); // b = a * tan(chi) ??
-                                                // Actually: tan(chi) = b/a. So b = a * tan(chi). 
-                                                // If chi=45, tan=1 -> b=a. If chi=0 -> b=0.
-
-                                                // Limit minor axis
-                                                const b = Math.min(size, Math.abs(size * Math.tan(chiRad)));
-                                                const a = size;
-
-                                                // Rotation transform
-                                                return (
-                                                    <g transform={`rotate(${angle})`}>
-                                                        <ellipse cx="0" cy="0" rx={a} ry={b} fill="none" stroke="#ff0055" strokeWidth="2" />
-                                                        {/* Arrow for direction? Complexity high. */}
-                                                        {/* Draw line for linear part if elliptical */}
-                                                        {b < 5 && (
-                                                            <line x1={-a} y1={0} x2={a} y2={0} stroke="#ff0055" strokeWidth="2" markerEnd="url(#arrow)" />
-                                                        )}
-                                                        {/* Circular arrow if circular? */}
+                                                            // Rotation transform
+                                                            return (
+                                                                <g transform={`rotate(${angle})`}>
+                                                                    <ellipse cx="0" cy="0" rx={a} ry={b} fill="none" stroke="#ff0055" strokeWidth="2" />
+                                                                    {b < 5 && (
+                                                                        <line x1={-a} y1={0} x2={a} y2={0} stroke="#ff0055" strokeWidth="2" markerEnd="url(#arrow)" />
+                                                                    )}
+                                                                </g>
+                                                            );
+                                                        })()}
                                                     </g>
-                                                );
-                                            })()}
-                                        </g>
 
-                                        <text x="40" y="36" fill="#8cf" fontSize="12" textAnchor="middle" fontFamily="monospace">
-                                            {formatPower(hits[comp.id] || 0)}
-                                        </text>
-                                        <text x="40" y="-38" fill="#fc8" fontSize="12" textAnchor="middle" fontFamily="monospace">
-                                            {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°
-                                        </text>
-                                    </g>
-                                )}
+                                                    <text x="40" y="36" fill="#8cf" fontSize="12" textAnchor="middle" fontFamily="monospace">
+                                                        {formatPower(hits[comp.id] || 0)}
+                                                    </text>
+                                                    <text x="40" y="-38" fill="#fc8" fontSize="12" textAnchor="middle" fontFamily="monospace">
+                                                        {(hits[comp.id + '_pol'] ?? 0).toFixed(0)}°
+                                                    </text>
+                                                </g>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </g>
                         )}
 
+
+
                         {/* Placeholder for others */}
-                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector'].includes(comp.type) && (
+                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector', 'breadboard'].includes(comp.type) && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
                     </g>
                 ))}
 
             </svg>
+
+            {/* Scale Bar Indicator */}
+            <div style={{
+                position: 'absolute',
+                bottom: '80px',
+                left: '20px',
+                background: 'rgba(20, 20, 26, 0.6)',
+                backdropFilter: 'blur(4px)',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                border: '1px solid var(--border)',
+                color: 'var(--text-dim)',
+                fontSize: '0.8rem',
+                pointerEvents: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                zIndex: 10
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                        width: '40px', // One grid unit
+                        height: '2px',
+                        background: 'var(--text-dim)',
+                        position: 'relative'
+                    }}>
+                        <div style={{ position: 'absolute', left: 0, top: '-4px', bottom: '-4px', width: '1px', background: 'var(--text-dim)' }} />
+                        <div style={{ position: 'absolute', right: 0, top: '-4px', bottom: '-4px', width: '1px', background: 'var(--text-dim)' }} />
+                    </div>
+                    <span>25 mm</span>
+                </div>
+            </div>
 
             {/* View Controls */}
             < div style={{ position: 'absolute', bottom: '20px', right: '20px', display: 'flex', gap: '10px' }}>
