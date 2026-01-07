@@ -9,11 +9,26 @@ import { tools } from './data/tools';
 
 function App() {
   // History State structure: { past: Array<Array<Comp>>, present: Array<Comp>, future: Array<Array<Comp>> }
-  const [history, setHistory] = useState({
-    past: [],
-    present: [],
-    future: []
+  const [history, setHistory] = useState(() => {
+    const saved = localStorage.getItem('opticstable_schematics');
+    let initialPresent = [];
+    if (saved) {
+      try {
+        initialPresent = JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to load schematics", e);
+      }
+    }
+    return {
+      past: [],
+      present: initialPresent,
+      future: []
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('opticstable_schematics', JSON.stringify(history.present));
+  }, [history.present]);
 
   // Theme State
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
