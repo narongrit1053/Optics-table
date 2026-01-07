@@ -24,46 +24,146 @@ const generateBeamPolygon = (ray) => {
         return null;
     }
 
-    const leftPoints = [];
-    const rightPoints = [];
+    const segments = [];
     const STEPS = 10;
 
+    // Pass 1: Generate Raw Segments
     for (let i = 0; i < ray.path.length - 1; i++) {
         const pStart = ray.path[i];
         const pEnd = ray.path[i + 1];
         const params = ray.gaussianParamsList[i];
 
-        if (!params) continue; // Should not happen if aligned
+        if (!params) continue;
 
         const dir = sub(pEnd, pStart);
         const len = mag(dir);
+        if (len < 0.001) continue;
+
         const ndir = normalize(dir);
         const perp = { x: -ndir.y, y: ndir.x };
 
+        const segLeft = [];
+        const segRight = [];
+
         for (let j = 0; j <= STEPS; j++) {
             const t = j / STEPS;
-            // Avoid duplication at segment joins: skip first point if not first segment
-            if (i > 0 && j === 0) continue;
-
             const currentPos = add(pStart, mul(dir, t));
             const currentDist = len * t;
-            // params.z is the z-coordinate at the START of the segment
+
             const zAtPoint = params.z + currentDist;
             const w = getGaussianWidth(zAtPoint, params.w0, params.zR);
+            const visualW = Math.max(w, 0.5);
 
-            // Visual scaling: ensure beam is visible. 
-            // w0=1 unit (1mm). Visual width = 2*w.
-            const visualW = Math.max(w, 0.5); // Min width for visibility
-
-            leftPoints.push(add(currentPos, mul(perp, visualW)));
-            rightPoints.push(sub(currentPos, mul(perp, visualW)));
+            segLeft.push(add(currentPos, mul(perp, visualW)));
+            segRight.push(sub(currentPos, mul(perp, visualW)));
         }
+        segments.push({
+            left: segLeft,
+            right: segRight,
+            dir: ndir,
+            pStart,
+            pEnd,
+            perp
+        });
     }
 
-    // Construct path: Left points forward, Right points backward
+    // Pass 2: Stitch Joints
+    const finalLeft = [];
+    const finalRight = [];
+
+    for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+
+        // Add body points (excluding last point if we are going to stitch it, but here we modify in place)
+
+        if (i < segments.length - 1) {
+            const nextSeg = segments[i + 1];
+
+            // Calculate angle
+            const dotP = seg.dir.x * nextSeg.dir.x + seg.dir.y * nextSeg.dir.y;
+
+            // "Blend when touching at the lens only"
+            // Lenses deflect by small angles (dotP close to 1). 
+            // Mirrors deflect by large angles (dotP < 0 usually, or close to -1).
+            // Threshold: dotP > 0.9 (approx < 25 degrees deflection) => Smooth Stitch
+
+            if (dotP > 0.9) {
+                // Smooth Stitch (Bisector)
+                // Calculate bisector normal
+                // Tangent = normalize(dir1 + dir2)
+                const sumDir = add(seg.dir, nextSeg.dir);
+                const tangent = normalize(sumDir);
+                const bisector = { x: -tangent.y, y: tangent.x };
+
+                // Project width? 
+                // Using average width at the vertex
+                // seg.left[last] and nextSeg.left[0] are typically at the same spatial vertex
+                const vLast = seg.left[seg.left.length - 1];
+                const vFirst = nextSeg.left[0];
+
+                // Get w from distance logic?
+                // Approximation: take the midpoint of the current endpoints magnitude
+                // Better: we calculated 'visualW' in Pass 1.
+                // We can reconstruct it or just use the raw calculation logic again if needed, 
+                // but simpler is to infer 'w' from the existing points deviation from center.
+                // Center is seg.pEnd
+                const wApprox = mag(sub(vLast, seg.pEnd));
+
+                // Correction for miter scale: w / dot(perp, bisector)
+                const cosHalfAngle = seg.perp.x * bisector.x + seg.perp.y * bisector.y;
+                const miterScale = 1 / Math.max(0.1, Math.abs(cosHalfAngle));
+                const finalW = wApprox * miterScale;
+
+                const fusedLeft = add(seg.pEnd, mul(bisector, finalW));
+                const fusedRight = sub(seg.pEnd, mul(bisector, finalW));
+
+                // Snap endpoints
+                seg.left[seg.left.length - 1] = fusedLeft;
+                seg.right[seg.right.length - 1] = fusedRight;
+                nextSeg.left[0] = fusedLeft;
+                nextSeg.right[0] = fusedRight;
+
+            } else {
+                // Sharp Stitch (Fan / Bevel) for Mirrors or sharp turns
+                // Add interpolation points to the END of current segment
+                const lastPerp = seg.perp;
+                const nextPerp = nextSeg.perp;
+                const center = seg.pEnd;
+                // Re-calc w at joint
+                const vLast = seg.left[seg.left.length - 1];
+                const wAtJoint = mag(sub(vLast, center));
+
+                const fanPointsLeft = [];
+                const fanPointsRight = [];
+                const FAN = 5;
+                for (let k = 1; k < FAN; k++) {
+                    const t = k / FAN;
+                    const mx = lastPerp.x * (1 - t) + nextPerp.x * t;
+                    const my = lastPerp.y * (1 - t) + nextPerp.y * t;
+                    const mlen = Math.sqrt(mx * mx + my * my);
+                    const mperp = { x: mx / mlen, y: my / mlen };
+
+                    fanPointsLeft.push(add(center, mul(mperp, wAtJoint)));
+                    fanPointsRight.push(sub(center, mul(mperp, wAtJoint)));
+                }
+
+                // Append fan to current segment arrays
+                seg.left.push(...fanPointsLeft);
+                seg.right.push(...fanPointsRight);
+            }
+        }
+
+        // Append to final list
+        // Note: For smooth stitch, nextSeg[0] is blended, so we add all points.
+        // There will be a duplicate point at the joint (seg[last] == nextSeg[0]).
+        // SVG handles duplicate points fine (zero length segment).
+        finalLeft.push(...seg.left);
+        finalRight.push(...seg.right);
+    }
+
     const points = [
-        ...leftPoints,
-        ...rightPoints.reverse()
+        ...finalLeft,
+        ...finalRight.reverse()
     ];
 
     if (points.length === 0) return '';
@@ -1176,6 +1276,132 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
 
 
 
+                        {/* Camera (CCD) */}
+                        {comp.type === 'camera' && (
+                            <g>
+                                {(() => {
+                                    // CCD (Zelux): 15mm (Length/Depth) x 47.2mm (Width)
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? 15);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? 47.2);
+
+                                    const power = hits[comp.id] || 0;
+
+                                    return (
+                                        <>
+                                            {/* Body */}
+                                            <rect
+                                                x={-L / 2}
+                                                y={-W / 2}
+                                                width={L}
+                                                height={W}
+                                                fill="#1a1a1a"
+                                                stroke="#444"
+                                                strokeWidth="2"
+                                                rx="2"
+                                            />
+
+                                            {/* Screen/Sensor Area Indication (Front Face) */}
+                                            <line x1={-L / 2} y1={-W / 2 + 4} x2={-L / 2} y2={W / 2 - 4} stroke="#00ff9d" strokeWidth="3" opacity="0.6" />
+
+                                            {/* Label Text */}
+                                            <g transform={`rotate(-90)`}>
+                                                <text
+                                                    x="0"
+                                                    y={L / 4}
+                                                    fill="#ccc"
+                                                    fontSize="10"
+                                                    textAnchor="middle"
+                                                    fontFamily="monospace"
+                                                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                                                >
+                                                    THORLABS
+                                                </text>
+                                                <text
+                                                    x="0"
+                                                    y={-L / 4 + 10}
+                                                    fill="#fff"
+                                                    fontSize="12"
+                                                    fontWeight="bold"
+                                                    textAnchor="middle"
+                                                    fontFamily="sans-serif"
+                                                    style={{ userSelect: 'none', pointerEvents: 'none', letterSpacing: '1px' }}
+                                                >
+                                                    Zelux
+                                                </text>
+                                            </g>
+
+                                            {/* Probe Readout (if hit) */}
+                                            {power > 0 && (
+                                                <g transform={`translate(${L / 2 + 20}, 0)`}>
+                                                    <rect x="-10" y="-15" width="100" height="30" rx="4" fill="rgba(0,0,0,0.8)" stroke="#00ff9d" />
+                                                    <text x="40" y="5" fill="#00ff9d" fontSize="14" textAnchor="middle" fontFamily="monospace">
+                                                        {formatPower(power)}
+                                                    </text>
+                                                </g>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </g>
+                        )}
+
+                        {/* EMCCD Camera */}
+                        {comp.type === 'emccd' && (
+                            <g>
+                                {(() => {
+                                    // EMCCD: 150mm (Length) x 200mm (Width)
+                                    const L = toPixels(comp.params?.physicalDim?.length ?? 150);
+                                    const W = toPixels(comp.params?.physicalDim?.width ?? 200);
+
+                                    const power = hits[comp.id] || 0;
+
+                                    return (
+                                        <>
+                                            {/* Body */}
+                                            <rect
+                                                x={-L / 2}
+                                                y={-W / 2}
+                                                width={L}
+                                                height={W}
+                                                fill="#101010"
+                                                stroke="#444"
+                                                strokeWidth="2"
+                                                rx="4"
+                                            />
+
+                                            {/* Screen/Sensor Area Indication */}
+                                            <line x1={-L / 2} y1={-W / 2 + 4} x2={-L / 2} y2={W / 2 - 4} stroke="#00ff9d" strokeWidth="4" opacity="0.6" />
+
+                                            {/* Label Text */}
+                                            <g transform={`rotate(-90)`}>
+                                                <text
+                                                    x="0"
+                                                    y={0}
+                                                    fill="#ccc"
+                                                    fontSize="24"
+                                                    textAnchor="middle"
+                                                    fontFamily="monospace"
+                                                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                                                >
+                                                    EMCCD
+                                                </text>
+                                            </g>
+
+                                            {/* Probe Readout (if hit) */}
+                                            {power > 0 && (
+                                                <g transform={`translate(${L / 2 + 20}, 0)`}>
+                                                    <rect x="-10" y="-15" width="100" height="30" rx="4" fill="rgba(0,0,0,0.8)" stroke="#00ff9d" />
+                                                    <text x="40" y="5" fill="#00ff9d" fontSize="14" textAnchor="middle" fontFamily="monospace">
+                                                        {formatPower(power)}
+                                                    </text>
+                                                </g>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </g>
+                        )}
+
                         {comp.type === 'vaporcell' && (
                             <g>
                                 {(() => {
@@ -1231,7 +1457,7 @@ const OpticalTable = ({ components, setComponents, onSelect, saveCheckpoint }) =
                         )}
 
                         {/* Placeholder for others */}
-                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector', 'breadboard', 'vaporcell'].includes(comp.type) && (
+                        {!['laser', 'mirror', 'lens', 'beamsplitter', 'detector', 'fiber', 'iris', 'blocker', 'aom', 'cavity', 'text', 'hwp', 'qwp', 'polarizer', 'pbs', 'poldetector', 'breadboard', 'vaporcell', 'camera', 'emccd'].includes(comp.type) && (
                             <circle r="10" fill="#444" stroke="#888" />
                         )}
 

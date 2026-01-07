@@ -21,5 +21,7 @@ export const DEFAULT_DIMENSIONS_MM = {
     pbs: { length: 12.7, width: 12.7, height: 12.7 },
     poldetector: { length: 12, width: 12, height: 12 },
     vaporcell: { length: 108, width: 25, height: 25 },
+    camera: { length: 15, width: 47.2, height: 47.2 }, // Default to CCD (Zelux)
+    emccd: { length: 200, width: 150, height: 120 },
     breadboard: { length: 300, width: 300, height: 10 }
 };

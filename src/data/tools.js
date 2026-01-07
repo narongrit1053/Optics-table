@@ -15,5 +15,7 @@ export const tools = [
     { id: 'fiber', label: 'Fiber Coupler', icon: '🧶', params: { acceptanceAngle: 15 } },
     { id: 'text', label: 'Text Label', icon: '📝', params: { content: 'Label', fontSize: 16, textColor: '#ffffff' } },
     { id: 'vaporcell', label: 'Vapor Cell', icon: '🧪', params: { shape: 'cylindrical', element: 'Rb-87' } },
+    { id: 'camera', label: 'CCD Camera', icon: '📷', params: { type: 'CCD' } },
+    { id: 'emccd', label: 'EMCCD Camera', icon: '📹', params: { type: 'EMCCD' } },
     { id: 'breadboard', label: 'Breadboard', icon: '▦', params: {} }
 ];

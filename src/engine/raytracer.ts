@@ -184,6 +184,38 @@ const getDetectorSegment = (det: OpticalComponent): { p1: Vector2D, p2: Vector2D
     return { p1, p2, normal };
 };
 
+// Camera (Same logic as detector but specific defaults)
+const getCameraSegment = (cam: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
+    const width = toPixels(cam.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.camera.width);
+    const halfWidth = width / 2;
+    const p1Local = { x: 0, y: -halfWidth };
+    const p2Local = { x: 0, y: halfWidth };
+
+    const p1 = rotatePoint({ x: cam.position.x + p1Local.x, y: cam.position.y + p1Local.y }, cam.position, cam.rotation);
+    const p2 = rotatePoint({ x: cam.position.x + p2Local.x, y: cam.position.y + p2Local.y }, cam.position, cam.rotation);
+
+    const normRad = (cam.rotation * Math.PI) / 180;
+    const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
+
+    return { p1, p2, normal };
+};
+
+// EMCCD Camera
+const getEMCCDSegment = (cam: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
+    const width = toPixels(cam.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.emccd.width);
+    const halfWidth = width / 2;
+    const p1Local = { x: 0, y: -halfWidth };
+    const p2Local = { x: 0, y: halfWidth };
+
+    const p1 = rotatePoint({ x: cam.position.x + p1Local.x, y: cam.position.y + p1Local.y }, cam.position, cam.rotation);
+    const p2 = rotatePoint({ x: cam.position.x + p2Local.x, y: cam.position.y + p2Local.y }, cam.position, cam.rotation);
+
+    const normRad = (cam.rotation * Math.PI) / 180;
+    const normal = { x: Math.cos(normRad), y: Math.sin(normRad) };
+
+    return { p1, p2, normal };
+};
+
 // Iris - dedicated segment with width matching visual (diameter 64 = 2 * radius 32)
 const getIrisSegment = (iris: OpticalComponent): { p1: Vector2D, p2: Vector2D, normal: Vector2D } => {
     const width = toPixels(iris.params?.physicalDim?.width ?? DEFAULT_DIMENSIONS_MM.iris.width);
@@ -514,6 +546,28 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
                 }
             }
 
+            // Camera (behaves like Detector)
+            else if (comp.type === 'camera') {
+                const seg = getCameraSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+                if (hit && hit.t < minT) {
+                    minT = hit.t;
+                    // Absorb
+                    closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'camera', component: comp };
+                }
+            }
+
+            // EMCCD Camera
+            else if (comp.type === 'emccd') {
+                const seg = getEMCCDSegment(comp);
+                const hit = intersectRaySegment(currentOrigin, currentDir, seg.p1, seg.p2);
+                if (hit && hit.t < minT) {
+                    minT = hit.t;
+                    // Absorb
+                    closestHit = { t: hit.t, point: hit.point, normal: seg.normal, type: 'emccd', component: comp };
+                }
+            }
+
             // AOM
             else if (comp.type === 'aom') {
                 const seg = getAOMSegment(comp);
@@ -760,7 +814,7 @@ const tracePolyline = (pending: PendingRay, components: OpticalComponent[]): { v
 
                 break;
             }
-            else if (hit.type === 'detector') {
+            else if (hit.type === 'detector' || hit.type === 'camera' || hit.type === 'emccd') {
                 const id = hit.component.id;
                 hits[id] = (hits[id] || 0) + currentIntensity;
                 break;
